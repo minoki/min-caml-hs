@@ -1,4 +1,5 @@
 {
+module Lexer where
 import Prelude hiding (getChar)
 import Data.Char
 import qualified Id
@@ -132,10 +133,4 @@ scanAll = do
                             EOF -> return (reverse revTokens)
                             x -> loop (x : revTokens)
   loop []
-
-main = do
-  s <- getContents
-  case runAlex s scanAll of
-    Left msg -> putStrLn msg
-    Right result -> print result
 }
