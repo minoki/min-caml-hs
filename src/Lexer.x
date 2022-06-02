@@ -49,8 +49,8 @@ tokens :-
   $lower [$lower $upper $digit \_]* { token (\(_, _, _, s) len -> Ident (take len s)) }
 
 {
-data AlexUserState = AlexUserState { idCounter :: Int
-                                   }
+newtype AlexUserState = AlexUserState { idCounter :: Int
+                                      }
 
 alexInitUserState :: AlexUserState
 alexInitUserState = AlexUserState { idCounter = 0 }
@@ -127,10 +127,16 @@ data Token = Bool Bool
 alexEOF :: Alex Token
 alexEOF = return EOF
 
+scanAll :: Alex [Token]
 scanAll = do
   let loop revTokens = do tok <- alexMonadScan
                           case tok of
                             EOF -> return (reverse revTokens)
                             x -> loop (x : revTokens)
   loop []
+
+scanAllAndState :: Alex ([Token], AlexUserState)
+scanAllAndState = do tokens <- scanAll
+                     state <- alexGetUserState
+                     return (tokens, state)
 }

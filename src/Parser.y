@@ -1,14 +1,18 @@
 {
 module Parser where
-import qualified Lexer as L
-import qualified Syntax as S
+import qualified Id
 import qualified Type
+import qualified Syntax as S
+import qualified Lexer as L
 import Data.Functor.Identity
+import Control.Monad.Except
+import Control.Monad.State.Strict
 }
 
 %name parseExp exp
 %tokentype { L.Token }
 %error { parseError }
+%monad { StateT Int (Either String) }
 
 %token
   bool { L.Bool $$ }
@@ -166,7 +170,7 @@ right_exp(p, exp_right) : p { $1 }
 
 -- 一般の式
 exp : if_exp_right(exp) { $1 }
-    | if_exp ';' exp { S.Let ("BOGUS: TODO", Type.Unit) $1 $3 }
+    | if_exp ';' exp {% do { tmp <- genTmp Type.Unit; return (S.Let (tmp, Type.Unit) $1 $3) } }
     | let_(exp) { $1 }
 
 fundef : ident formal_args '=' exp { S.FunDec { S.name = addTyp $1, S.args = $2, S.body = $4 } }
@@ -181,9 +185,12 @@ pat : pat ',' ident { $1 ++ [addTyp $3] }
     | ident ',' ident { [addTyp $1, addTyp $3] }
 
 {
-parseError :: [L.Token] -> a
-parseError _ = error "Parse error"
+parseError :: [L.Token] -> StateT Int (Either String) a
+parseError _ = throwError "parse error"
+
+genTmp :: Type.TypeF f -> StateT Int (Either String) Id.Id
+genTmp t = state (Id.genTmp t)
 
 addTyp :: a -> (a, Type.TypeF Identity)
-addTyp x = (x, Type.Unit) -- TODO: Use genTyp
+addTyp x = (x, Type.Var (Identity Nothing))
 }
