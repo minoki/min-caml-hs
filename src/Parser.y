@@ -73,28 +73,23 @@ app_exp : simple_exp { $1 }
 app_exp_right(exp_right) : simple_exp { $1 }
                          | simple_exp actual_args { S.App $1 $2 }
                          | 'Array.create' simple_exp simple_exp { S.Array $2 $3 }
-                         | not app_exp_right(exp_right) { S.Not $2 }
-                         | not head_exp(exp_right) { S.Not $2 }
+                         | not right_exp(app_exp_right(exp_right), exp_right) { S.Not $2 }
 
 neg_exp : app_exp { $1 }
         | '-' neg_exp { case $2 of S.Float f -> S.Float (- f) ; e -> S.Neg e }
         | '-.' neg_exp { S.FNeg $2 }
 
 neg_exp_right(exp_right) : app_exp_right(exp_right) { $1 }
-                         | '-' neg_exp_right(exp_right) { case $2 of S.Float f -> S.Float (- f) ; e -> S.Neg e }
-                         | '-.' neg_exp_right(exp_right) { S.FNeg $2 }
-                         | '-' head_exp(exp_right) { case $2 of S.Float f -> S.Float (- f) ; e -> S.Neg e }
-                         | '-.' head_exp(exp_right) { S.FNeg $2 }
+                         | '-' right_exp(neg_exp_right(exp_right), exp_right) { case $2 of S.Float f -> S.Float (- f) ; e -> S.Neg e }
+                         | '-.' right_exp(neg_exp_right(exp_right), exp_right) { S.FNeg $2 }
 
 mult_exp : neg_exp { $1 }
          | mult_exp '*.' neg_exp { S.FMul $1 $3 }
          | mult_exp '/.' neg_exp { S.FDiv $1 $3 }
 
 mult_exp_right(exp_right) : neg_exp_right(exp_right) { $1 }
-                          | mult_exp '*.' neg_exp_right(exp_right) { S.FMul $1 $3 }
-                          | mult_exp '/.' neg_exp_right(exp_right) { S.FDiv $1 $3 }
-                          | mult_exp '*.' head_exp(exp_right) { S.FMul $1 $3 }
-                          | mult_exp '/.' head_exp(exp_right) { S.FDiv $1 $3 }
+                          | mult_exp '*.' right_exp(neg_exp_right(exp_right), exp_right) { S.FMul $1 $3 }
+                          | mult_exp '/.' right_exp(neg_exp_right(exp_right), exp_right) { S.FDiv $1 $3 }
 
 add_exp : mult_exp { $1 }
         | add_exp '+' mult_exp { S.Add $1 $3 }
@@ -103,14 +98,10 @@ add_exp : mult_exp { $1 }
         | add_exp '-.' mult_exp { S.FSub $1 $3 }
 
 add_exp_right(exp_right) : mult_exp_right(exp_right) { $1 }
-                         | add_exp '+' mult_exp_right(exp_right) { S.Add $1 $3 }
-                         | add_exp '-' mult_exp_right(exp_right) { S.Sub $1 $3 }
-                         | add_exp '+.' mult_exp_right(exp_right) { S.FAdd $1 $3 }
-                         | add_exp '-.' mult_exp_right(exp_right) { S.FSub $1 $3 }
-                         | add_exp '+' head_exp(exp_right) { S.Add $1 $3 }
-                         | add_exp '-' head_exp(exp_right) { S.Sub $1 $3 }
-                         | add_exp '+.' head_exp(exp_right) { S.FAdd $1 $3 }
-                         | add_exp '-.' head_exp(exp_right) { S.FSub $1 $3 }
+                         | add_exp '+' right_exp(mult_exp_right(exp_right), exp_right) { S.Add $1 $3 }
+                         | add_exp '-' right_exp(mult_exp_right(exp_right), exp_right) { S.Sub $1 $3 }
+                         | add_exp '+.' right_exp(mult_exp_right(exp_right), exp_right) { S.FAdd $1 $3 }
+                         | add_exp '-.' right_exp(mult_exp_right(exp_right), exp_right) { S.FSub $1 $3 }
 
 rel_exp : add_exp { $1 }
         | rel_exp '=' add_exp { S.Eq $1 $3 }
@@ -121,18 +112,12 @@ rel_exp : add_exp { $1 }
         | rel_exp '>=' add_exp { S.LE $3 $1 }
 
 rel_exp_right(exp_right) : add_exp_right(exp_right) { $1 }
-                         | rel_exp '=' add_exp_right(exp_right) { S.Eq $1 $3 }
-                         | rel_exp '<>' add_exp_right(exp_right) { S.Not (S.Eq $1 $3) }
-                         | rel_exp '<' add_exp_right(exp_right) { S.Not (S.LE $3 $1) }
-                         | rel_exp '>' add_exp_right(exp_right) { S.Not (S.LE $1 $3) }
-                         | rel_exp '<=' add_exp_right(exp_right) { S.LE $1 $3 }
-                         | rel_exp '>=' add_exp_right(exp_right) { S.LE $3 $1 }
-                         | rel_exp '=' head_exp(exp_right) { S.Eq $1 $3 }
-                         | rel_exp '<>' head_exp(exp_right) { S.Not (S.Eq $1 $3) }
-                         | rel_exp '<' head_exp(exp_right) { S.Not (S.LE $3 $1) }
-                         | rel_exp '>' head_exp(exp_right) { S.Not (S.LE $1 $3) }
-                         | rel_exp '<=' head_exp(exp_right) { S.LE $1 $3 }
-                         | rel_exp '>=' head_exp(exp_right) { S.LE $3 $1 }
+                         | rel_exp '=' right_exp(add_exp_right(exp_right), exp_right) { S.Eq $1 $3 }
+                         | rel_exp '<>' right_exp(add_exp_right(exp_right), exp_right) { S.Not (S.Eq $1 $3) }
+                         | rel_exp '<' right_exp(add_exp_right(exp_right), exp_right) { S.Not (S.LE $3 $1) }
+                         | rel_exp '>' right_exp(add_exp_right(exp_right), exp_right) { S.Not (S.LE $1 $3) }
+                         | rel_exp '<=' right_exp(add_exp_right(exp_right), exp_right) { S.LE $1 $3 }
+                         | rel_exp '>=' right_exp(add_exp_right(exp_right), exp_right) { S.LE $3 $1 }
 
 tuple_exp : rel_exp { $1 }
           | rel_exp ',' tuple_exp_rest { S.Tuple ($1 : $3) }
@@ -175,6 +160,9 @@ let_(tail_exp) : let ident '=' exp in tail_exp { S.Let (addTyp $2) $4 $6 }
 head_exp(exp_right) : put_(put_exp_right(exp_right)) { $1 }
                     | if_(if_exp_right(exp_right)) { $1 }
                     | let_(exp_right) { $1 }
+
+right_exp(p, exp_right) : p { $1 }
+                        | head_exp(exp_right) { $1 }
 
 -- 一般の式
 exp : if_exp_right(exp) { $1 }
