@@ -34,3 +34,32 @@ data FunDecF f = FunDec { name :: (Id, T.TypeF f)
                         , body :: ExpF f
                         }
                  deriving Show
+
+mapExpM :: Applicative m => (T.TypeF f -> m (T.TypeF g)) -> ExpF f -> m (ExpF g)
+mapExpM _ Unit = pure Unit
+mapExpM _ (Bool x) = pure (Bool x)
+mapExpM _ (Int x) = pure (Int x)
+mapExpM _ (Float x) = pure (Float x)
+mapExpM f (Not x) = Not <$> mapExpM f x
+mapExpM f (Neg x) = Neg <$> mapExpM f x
+mapExpM f (Add x y) = Add <$> mapExpM f x <*> mapExpM f y
+mapExpM f (Sub x y) = Sub <$> mapExpM f x <*> mapExpM f y
+mapExpM f (FNeg x) = Neg <$> mapExpM f x
+mapExpM f (FAdd x y) = FAdd <$> mapExpM f x <*> mapExpM f y
+mapExpM f (FSub x y) = FSub <$> mapExpM f x <*> mapExpM f y
+mapExpM f (FMul x y) = FMul <$> mapExpM f x <*> mapExpM f y
+mapExpM f (FDiv x y) = FDiv <$> mapExpM f x <*> mapExpM f y
+mapExpM f (Eq x y) = Eq <$> mapExpM f x <*> mapExpM f y
+mapExpM f (LE x y) = LE <$> mapExpM f x <*> mapExpM f y
+mapExpM f (Let (x, t) y z) = (\t' -> Let (x, t')) <$> f t <*> mapExpM f y <*> mapExpM f z
+mapExpM _ (Var x) = pure (Var x)
+mapExpM f (LetRec fundec x) = LetRec <$> mapFunDecM f (mapExpM f) fundec <*> mapExpM f x
+mapExpM f (App x ys) = App <$> mapExpM f x <*> traverse (mapExpM f) ys
+mapExpM f (Tuple xs) = Tuple <$> traverse (mapExpM f) xs
+mapExpM f (LetTuple xts y z) = LetTuple <$> traverse (\(x, t) -> (,) x <$> f t) xts <*> mapExpM f y <*> mapExpM f z
+mapExpM f (Array x y) = Array <$> mapExpM f x <*> mapExpM f y
+mapExpM f (Get x y) = Get <$> mapExpM f x <*> mapExpM f y
+mapExpM f (Put x y z) = Put <$> mapExpM f x <*> mapExpM f y <*> mapExpM f z
+
+mapFunDecM :: Applicative m => (T.TypeF f -> m (T.TypeF g)) -> (ExpF f -> m (ExpF g)) -> FunDecF f -> m (FunDecF g)
+mapFunDecM f g (FunDec { name = (x, t), args = yts, body = body }) = (\t' -> FunDec (x, t')) <$> f t <*> traverse (\(y, t) -> (,) y <$> f t) yts <*> g body

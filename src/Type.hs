@@ -26,3 +26,13 @@ instance Show1 f => Show (TypeF f) where
 genTyp :: ST s (TypeF (STRef s))
 genTyp = do r <- newSTRef Nothing
             return (Var r)
+
+mapTypeM :: Applicative m => (f (Maybe (TypeF f)) -> m (TypeF g)) -> TypeF f -> m (TypeF g)
+mapTypeM _ Unit = pure Unit
+mapTypeM _ Bool = pure Bool
+mapTypeM _ Int = pure Int
+mapTypeM _ Float = pure Float
+mapTypeM f (Fun xs y) = Fun <$> traverse (mapTypeM f) xs <*> mapTypeM f y
+mapTypeM f (Tuple xs) = Tuple <$> traverse (mapTypeM f) xs
+mapTypeM f (Array x) = Array <$> mapTypeM f x
+mapTypeM f (Var x) = f x
