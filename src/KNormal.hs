@@ -11,6 +11,8 @@ import Control.Monad.Except
 import Data.Functor.Identity
 import qualified Data.List as List
 
+type Exp = ExpF Identity
+
 data ExpF f = Unit
             | Int Int
             | Float Double

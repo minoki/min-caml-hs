@@ -32,6 +32,7 @@ executable min-caml
                     , Parser
                     , Typing
                     , KNormal
+                    , Alpha
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:

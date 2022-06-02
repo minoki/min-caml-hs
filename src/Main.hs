@@ -3,6 +3,7 @@ import qualified Lexer
 import qualified Parser
 import qualified Typing
 import qualified KNormal
+import qualified Alpha
 import Control.Monad.State.Strict
 import Control.Monad.Reader
 
@@ -19,4 +20,5 @@ main = do
             Left msg -> putStrLn msg
             Right (exp', extenv) -> case runStateT (runReaderT (KNormal.f exp') extenv) state' of
               Left msg -> putStrLn msg
-              Right (exp'', state'') -> print exp''
+              Right (exp'', state'') -> case runState (Alpha.f exp'') state'' of
+                (exp''', state''') -> print exp'''
