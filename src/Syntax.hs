@@ -51,6 +51,7 @@ mapExpM f (FMul x y) = FMul <$> mapExpM f x <*> mapExpM f y
 mapExpM f (FDiv x y) = FDiv <$> mapExpM f x <*> mapExpM f y
 mapExpM f (Eq x y) = Eq <$> mapExpM f x <*> mapExpM f y
 mapExpM f (LE x y) = LE <$> mapExpM f x <*> mapExpM f y
+mapExpM f (If x y z) = If <$> mapExpM f x <*> mapExpM f y <*> mapExpM f z
 mapExpM f (Let (x, t) y z) = (\t' -> Let (x, t')) <$> f t <*> mapExpM f y <*> mapExpM f z
 mapExpM _ (Var x) = pure (Var x)
 mapExpM f (LetRec fundec x) = LetRec <$> mapFunDefM f (mapExpM f) fundec <*> mapExpM f x
