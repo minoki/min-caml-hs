@@ -3,7 +3,7 @@ import Type
 
 type Id = String
 
-newtype Label = Label String
+newtype Label = Label String deriving (Eq, Show)
 
 genId :: String -> Int -> (Id, Int)
 genId s counter = let counter' = counter + 1
