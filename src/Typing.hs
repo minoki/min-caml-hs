@@ -140,7 +140,7 @@ g env (S.Var x) | Just t <- Map.lookup x env = pure t
                                      t <- lift $ lift Type.genTyp
                                      modify (Map.insert x t)
                                      pure t
-g env (S.LetRec (S.FunDec { S.name = (x, t), S.args = yts, S.body = e1 }) e2) = do
+g env (S.LetRec (S.FunDef { S.name = (x, t), S.args = yts, S.body = e1 }) e2) = do
           let env' = Map.insert x t env
           resultTy <- g (List.foldl' (\m (y, u) -> Map.insert y u m) env' yts) e1
           unify t (Type.Fun (List.map snd yts) resultTy)

@@ -173,7 +173,7 @@ exp : if_exp_right { $1 }
     | if_exp ';' exp {% do { tmp <- genTmp Type.Unit; return (S.Let (tmp, Type.Unit) $1 $3) } }
     | let_(exp) { $1 }
 
-fundef : ident formal_args '=' exp { S.FunDec { S.name = addTyp $1, S.args = $2, S.body = $4 } }
+fundef : ident formal_args '=' exp { S.FunDef { S.name = addTyp $1, S.args = $2, S.body = $4 } }
 
 formal_args : ident formal_args { addTyp $1 : $2 }
             | ident { [addTyp $1] }

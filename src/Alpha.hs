@@ -1,7 +1,7 @@
 module Alpha where
 import qualified Id
 import Id (Id)
-import KNormal (Exp, ExpF(..), FunDecF(..))
+import KNormal (Exp, ExpF(..), FunDefF(..))
 import Control.Monad.State.Strict
 import qualified Data.Map.Strict as Map
 import qualified Data.List as List
@@ -28,11 +28,11 @@ g env (IfLE x y e1 e2) = IfLE (find x env) (find y env) <$> g env e1 <*> g env e
 g env (Let (x, t) e1 e2) = do x' <- state (Id.genId x)
                               Let (x', t) <$> g env e1 <*> g (Map.insert x x' env) e2
 g env (Var x) = pure (Var (find x env))
-g env (LetRec (FunDec { name = (x, t), args = yts, body = e1 }) e2)
+g env (LetRec (FunDef { name = (x, t), args = yts, body = e1 }) e2)
   = do env' <- (\x' -> Map.insert x x' env) <$> state (Id.genId x)
        let ys = map fst yts
        env'' <- (\ys' -> List.foldl' (\m (y, y') -> Map.insert y y' m) env (zip ys ys')) <$> mapM (state . Id.genId) ys
-       fundec <- FunDec (find x env', t) (map (\(y, t) -> (find y env', t)) yts) <$> g env'' e1
+       fundec <- FunDef (find x env', t) (map (\(y, t) -> (find y env', t)) yts) <$> g env'' e1
        LetRec fundec <$> g env' e2
 g env (App x ys) = pure (App (find x env) (map (`find` env) ys))
 g env (Tuple xs) = pure (Tuple (map (`find` env) xs))

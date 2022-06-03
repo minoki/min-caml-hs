@@ -20,7 +20,7 @@ data ExpF f = Unit
             | If (ExpF f) (ExpF f) (ExpF f)
             | Let (Id, T.TypeF f) (ExpF f) (ExpF f)
             | Var Id
-            | LetRec (FunDecF f) (ExpF f)
+            | LetRec (FunDefF f) (ExpF f)
             | App (ExpF f) [ExpF f]
             | Tuple [ExpF f]
             | LetTuple [(Id, T.TypeF f)] (ExpF f) (ExpF f)
@@ -29,7 +29,7 @@ data ExpF f = Unit
             | Put (ExpF f) (ExpF f) (ExpF f)
             deriving Show
 
-data FunDecF f = FunDec { name :: (Id, T.TypeF f)
+data FunDefF f = FunDef { name :: (Id, T.TypeF f)
                         , args :: [(Id, T.TypeF f)]
                         , body :: ExpF f
                         }
@@ -53,7 +53,7 @@ mapExpM f (Eq x y) = Eq <$> mapExpM f x <*> mapExpM f y
 mapExpM f (LE x y) = LE <$> mapExpM f x <*> mapExpM f y
 mapExpM f (Let (x, t) y z) = (\t' -> Let (x, t')) <$> f t <*> mapExpM f y <*> mapExpM f z
 mapExpM _ (Var x) = pure (Var x)
-mapExpM f (LetRec fundec x) = LetRec <$> mapFunDecM f (mapExpM f) fundec <*> mapExpM f x
+mapExpM f (LetRec fundec x) = LetRec <$> mapFunDefM f (mapExpM f) fundec <*> mapExpM f x
 mapExpM f (App x ys) = App <$> mapExpM f x <*> traverse (mapExpM f) ys
 mapExpM f (Tuple xs) = Tuple <$> traverse (mapExpM f) xs
 mapExpM f (LetTuple xts y z) = LetTuple <$> traverse (\(x, t) -> (,) x <$> f t) xts <*> mapExpM f y <*> mapExpM f z
@@ -61,5 +61,5 @@ mapExpM f (Array x y) = Array <$> mapExpM f x <*> mapExpM f y
 mapExpM f (Get x y) = Get <$> mapExpM f x <*> mapExpM f y
 mapExpM f (Put x y z) = Put <$> mapExpM f x <*> mapExpM f y <*> mapExpM f z
 
-mapFunDecM :: Applicative m => (T.TypeF f -> m (T.TypeF g)) -> (ExpF f -> m (ExpF g)) -> FunDecF f -> m (FunDecF g)
-mapFunDecM f g (FunDec { name = (x, t), args = yts, body = body }) = (\t' -> FunDec (x, t')) <$> f t <*> traverse (\(y, t) -> (,) y <$> f t) yts <*> g body
+mapFunDefM :: Applicative m => (T.TypeF f -> m (T.TypeF g)) -> (ExpF f -> m (ExpF g)) -> FunDefF f -> m (FunDefF g)
+mapFunDefM f g (FunDef { name = (x, t), args = yts, body = body }) = (\t' -> FunDef (x, t')) <$> f t <*> traverse (\(y, t) -> (,) y <$> f t) yts <*> g body

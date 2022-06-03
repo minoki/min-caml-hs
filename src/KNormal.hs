@@ -28,7 +28,7 @@ data ExpF f = Unit
             | IfLE Id Id (ExpF f) (ExpF f)
             | Let (Id, Type.TypeF f) (ExpF f) (ExpF f)
             | Var Id
-            | LetRec (FunDecF f) (ExpF f)
+            | LetRec (FunDefF f) (ExpF f)
             | App Id [Id]
             | Tuple [Id]
             | LetTuple [(Id, Type.TypeF f)] Id (ExpF f)
@@ -38,7 +38,7 @@ data ExpF f = Unit
             | ExtFunApp Id [Id]
             deriving Show
 
-data FunDecF f = FunDec { name :: (Id, Type.TypeF f)
+data FunDefF f = FunDef { name :: (Id, Type.TypeF f)
                         , args :: [(Id, Type.TypeF f)]
                         , body :: ExpF f
                         }
@@ -63,7 +63,7 @@ fv (IfEq x y e1 e2) = Set.insert x (Set.insert y (Set.union (fv e1) (fv e2)))
 fv (IfLE x y e1 e2) = Set.insert x (Set.insert y (Set.union (fv e1) (fv e2)))
 fv (Let (x, _) e1 e2) = Set.union (fv e1) (Set.delete x (fv e2))
 fv (Var x) = Set.singleton x
-fv (LetRec (FunDec { name = (x, _), args = yts, body = e1 }) e2)
+fv (LetRec (FunDef { name = (x, _), args = yts, body = e1 }) e2)
   = let zs = Set.difference (fv e1) (Set.fromList (map fst yts))
     in Set.delete x (Set.union zs (fv e2))
 fv (App x ys) = Set.fromList (x : ys)
@@ -134,11 +134,11 @@ g env (Syntax.Var x) | Just t <- Map.lookup x env = pure (Var x, t)
                          case extenv Map.! x of
                            t@(Type.Array _) -> pure (ExtArray x, t)
                            _ -> throwError $ "external variable " ++ x ++ " does not have an array type"
-g env (Syntax.LetRec (Syntax.FunDec { Syntax.name = (x, t), Syntax.args = yts, Syntax.body = e1 }) e2)
+g env (Syntax.LetRec (Syntax.FunDef { Syntax.name = (x, t), Syntax.args = yts, Syntax.body = e1 }) e2)
   = do let env' = Map.insert x t env
        (e2', t2) <- g env' e2
        (e1', _t1) <- g (List.foldl' (\m (y, t) -> Map.insert y t m) env' yts) e1
-       pure (LetRec (FunDec { name = (x, t), args = yts, body = e1' }) e2', t2)
+       pure (LetRec (FunDef { name = (x, t), args = yts, body = e1' }) e2', t2)
 g env (Syntax.App (Syntax.Var f) e2s) | not (Map.member f env) = do
                                           extenv <- ask
                                           case extenv Map.! f of
