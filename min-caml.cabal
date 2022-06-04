@@ -34,6 +34,8 @@ executable min-caml
                     , KNormal
                     , Alpha
                     , Closure
+                    , AArch64Asm
+                    , Virtual
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:
