@@ -4,6 +4,7 @@ import qualified Id
 import Id (Id)
 import qualified Type
 import Data.Functor.Identity
+import qualified Data.Vector as V
 
 type Type = Type.TypeF Identity
 
@@ -35,6 +36,7 @@ data Exp
   | FDivD Id Id
   | LdDF Id IdOrImm -- load double floating-point; ldr in AArch64. immediate: 0 <= 8 * _ <= 32760
   | StDF Id Id IdOrImm -- store double floating-point; str in AArch64. immediate: 0 <= 8 * _ <= 32760
+  | Comment String
   -- virtual instructions
   | IfEq Id IdOrImm Instructions Instructions -- cmp immediate: 0 <= _ <= 4095
   | IfLE Id IdOrImm Instructions Instructions -- cmp immediate: 0 <= _ <= 4095
@@ -63,10 +65,44 @@ concat :: Instructions -> (Id.Id, Type) -> Instructions -> Instructions
 concat (Ans exp) xt e2 = Let xt exp e2
 concat (Let yt exp e1') xt e2 = Let yt exp (concat e1' xt e2)
 
+-- 先頭の % はemit時に外す
+allregs :: [Id]
+allregs = [ "%x2", "%x3", "%x4", "%x5"
+          , "%x6", "%x7", "%x8", "%x9"
+          , "%x10", "%x11", "%x12", "%x13"
+          , "%x14", "%x15"
+          ]
+
+allfregs :: [Id]
+allfregs = ["%d" ++ show (i :: Int) | i <- [0..7] ++ [16..31]]
+
+regs :: V.Vector Id
+regs = V.fromList allregs
+
+fregs :: V.Vector Id
+fregs = V.fromList allfregs
+
+-- closure address
+reg_cl :: Id
+reg_cl = allregs !! (length allregs - 2)
+
+-- temporary for swap
+reg_sw :: Id
+reg_sw = allregs !! (length allregs - 1)
+
+-- temporary for swap
+reg_fsw :: Id
+reg_fsw = allfregs !! (length allfregs - 1)
+
+-- stack pointer
+reg_sp :: Id
+reg_sp = "%x0"
+
 -- heap pointer
 -- 8-byte aligned
 reg_hp :: Id
-reg_hp = "<heap>"
+reg_hp = "%x1"
 
-reg_cl :: Id
-reg_cl = "<closure>"
+-- return address
+reg_ra :: Id
+reg_ra = "%x30"

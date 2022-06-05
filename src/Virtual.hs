@@ -9,7 +9,9 @@ import qualified Data.Map.Strict as Map
 import qualified Data.List as List
 import Control.Monad.Except
 
--- 状態：浮動小数点数の定数テーブル
+-- 状態：
+-- * 識別子生成のためのカウンター
+-- * 浮動小数点数の定数テーブル
 type M = StateT (Int, [(Id.Label, Double)]) (Either String)
 
 genId :: String -> M Id.Id
