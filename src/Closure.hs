@@ -3,13 +3,10 @@ import Id (Id)
 import qualified Id
 import qualified Type
 import qualified KNormal
-import Data.Functor.Identity
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import qualified Data.List as List
 import Control.Monad.State.Strict
-
-type Type = Type.TypeF Identity
 
 data Closure = Closure { entry :: Id.Label
                        , actualFv :: [Id]
@@ -29,21 +26,21 @@ data Exp = Unit
          | FDiv Id Id
          | IfEq Id Id Exp Exp
          | IfLE Id Id Exp Exp
-         | Let (Id, Type) Exp Exp
+         | Let (Id, Type.Type) Exp Exp
          | Var Id
-         | MakeCls (Id, Type) Closure Exp
+         | MakeCls (Id, Type.Type) Closure Exp
          | AppCls Id [Id]
          | AppDir Id.Label [Id]
          | Tuple [Id]
-         | LetTuple [(Id, Type)] Id Exp
+         | LetTuple [(Id, Type.Type)] Id Exp
          | Get Id Id
          | Put Id Id Id
          | ExtArray Id.Label
          deriving Show
 
-data FunDef = FunDef { name :: (Id.Label, Type)
-                     , args :: [(Id, Type)]
-                     , formalFv :: [(Id, Type)]
+data FunDef = FunDef { name :: (Id.Label, Type.Type)
+                     , args :: [(Id, Type.Type)]
+                     , formalFv :: [(Id, Type.Type)]
                      , body :: Exp
                      }
             deriving Show
@@ -79,7 +76,7 @@ fv (ExtArray _) = Set.empty
 
 type M = State [FunDef] -- toplevel
 
-g :: Map.Map Id Type -> Set.Set Id -> KNormal.Exp -> M Exp
+g :: Map.Map Id Type.Type -> Set.Set Id -> KNormal.Exp -> M Exp
 g _ _ KNormal.Unit = pure Unit
 g _ _ (KNormal.Int i) = pure $ Int i
 g _ _ (KNormal.Float d) = pure $ Float d

@@ -26,27 +26,27 @@ sameFloat x y = x == y && isNegativeZero x == isNegativeZero y
 addList :: Ord k => [(k, a)] -> Map.Map k a -> Map.Map k a
 addList xts m = List.foldl' (\m (y, t) -> Map.insert y t m) m xts
 
-classify :: [(id, Type)] -> acc -> {- float -} (acc -> id -> acc) -> {- integer -} (acc -> id -> Type -> acc) -> acc
+classify :: [(id, Type.Type)] -> acc -> {- float -} (acc -> id -> acc) -> {- integer -} (acc -> id -> Type.Type -> acc) -> acc
 classify xts ini addf addi = List.foldl' (\acc (x, t) -> case t of
                                                            Type.Unit -> acc
                                                            Type.Float -> addf acc x
                                                            _ -> addi acc x t) ini xts
 
-separate :: [(id, Type)] -> ({- integers -} [id], {- floats -} [id])
+separate :: [(id, Type.Type)] -> ({- integers -} [id], {- floats -} [id])
 separate xts = classify
                xts
                ([], [])
                (\(int, float) x -> (int, float ++ [x]))
                (\(int, float) x _ -> (int ++ [x], float))
 
-expand :: [(id, Type)] -> (Int, acc) -> {- float -} (id -> Int -> acc -> acc) -> {- integer -} (id -> Type -> Int -> acc -> acc) -> (Int, acc)
+expand :: [(id, Type.Type)] -> (Int, acc) -> {- float -} (id -> Int -> acc -> acc) -> {- integer -} (id -> Type.Type -> Int -> acc -> acc) -> (Int, acc)
 expand xts ini addf addi = classify
                            xts
                            ini
                            (\(offset, acc) x -> (offset + 8, addf x offset acc)) -- offset is always 8-byte aligned
                            (\(offset, acc) x t -> (offset + 8, addi x t offset acc)) -- integer/pointer size: 8 bytes
 
-g :: Map.Map Id.Id Type -> Closure.Exp -> M Instructions
+g :: Map.Map Id.Id Type.Type -> Closure.Exp -> M Instructions
 g _ Closure.Unit = pure $ Ans Nop
 g _ (Closure.Int i) = pure $ Ans $ Set i
 g _ (Closure.Float d) = do table <- gets snd

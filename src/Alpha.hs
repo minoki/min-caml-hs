@@ -1,7 +1,7 @@
 module Alpha where
 import qualified Id
 import Id (Id)
-import KNormal (Exp, ExpF(..), FunDefF(..))
+import KNormal (Exp(..), FunDef(..))
 import Control.Monad.State.Strict
 import qualified Data.Map.Strict as Map
 import qualified Data.List as List

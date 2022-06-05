@@ -1,6 +1,10 @@
 module Syntax where
 import Id
 import qualified Type as T
+import Data.Void
+import Data.Functor.Const
+
+type Exp = ExpF (Const Void)
 
 data ExpF f = Unit
             | Bool Bool

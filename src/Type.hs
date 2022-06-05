@@ -2,6 +2,8 @@ module Type where
 import Control.Monad.ST
 import Data.STRef
 import Data.Functor.Classes
+import Data.Functor.Const
+import Data.Void
 
 data TypeF f = Unit
              | Bool
@@ -10,7 +12,9 @@ data TypeF f = Unit
              | Fun [TypeF f] (TypeF f)
              | Tuple [TypeF f]
              | Array (TypeF f)
-             | Var (f (Maybe (TypeF f)))
+             | Var !(f (Maybe (TypeF f)))
+
+type Type = TypeF (Const Void)
 
 instance Show1 f => Show (TypeF f) where
   showsPrec prec x = case x of

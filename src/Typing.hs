@@ -179,7 +179,7 @@ fillFreshType = Type.mapTypeM f
 fillFreshTypesInExp :: S.ExpF Identity -> ST s (S.ExpF (STRef s))
 fillFreshTypesInExp = S.mapExpM fillFreshType
 
-freezeType :: Type.TypeF (STRef s) -> ST s (Type.TypeF Identity)
+freezeType :: Type.TypeF (STRef s) -> ST s Type.Type
 freezeType = Type.mapTypeM f
   where f r = do m <- readSTRef r
                  case m of
@@ -189,10 +189,10 @@ freezeType = Type.mapTypeM f
                      pure Type.Int
                    Just t -> freezeType t
 
-freezeTypesInExp :: S.ExpF (STRef s) -> ST s (S.ExpF Identity)
+freezeTypesInExp :: S.ExpF (STRef s) -> ST s S.Exp
 freezeTypesInExp = S.mapExpM freezeType
 
-f :: S.ExpF Identity -> Either String (S.ExpF Identity, Map.Map Id.Id (Type.TypeF Identity))
+f :: S.ExpF Identity -> Either String (S.Exp, Map.Map Id.Id Type.Type)
 f e = runST $ do
   e' <- fillFreshTypesInExp e
   let initialEnv = Map.empty

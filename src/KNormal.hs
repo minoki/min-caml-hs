@@ -8,44 +8,41 @@ import qualified Data.Map.Strict as Map
 import Control.Monad.Reader
 import Control.Monad.State.Strict
 import Control.Monad.Except
-import Data.Functor.Identity
 import qualified Data.List as List
 
-type Exp = ExpF Identity
+data Exp = Unit
+         | Int Int
+         | Float Double
+         | Neg Id
+         | Add Id Id
+         | Sub Id Id
+         | FNeg Id
+         | FAdd Id Id
+         | FSub Id Id
+         | FMul Id Id
+         | FDiv Id Id
+         | IfEq Id Id Exp Exp
+         | IfLE Id Id Exp Exp
+         | Let (Id, Type.Type) Exp Exp
+         | Var Id
+         | LetRec FunDef Exp
+         | App Id [Id]
+         | Tuple [Id]
+         | LetTuple [(Id, Type.Type)] Id Exp
+         | Get Id Id
+         | Put Id Id Id
+         | ExtArray Id
+         | ExtFunApp Id [Id]
+         deriving Show
 
-data ExpF f = Unit
-            | Int Int
-            | Float Double
-            | Neg Id
-            | Add Id Id
-            | Sub Id Id
-            | FNeg Id
-            | FAdd Id Id
-            | FSub Id Id
-            | FMul Id Id
-            | FDiv Id Id
-            | IfEq Id Id (ExpF f) (ExpF f)
-            | IfLE Id Id (ExpF f) (ExpF f)
-            | Let (Id, Type.TypeF f) (ExpF f) (ExpF f)
-            | Var Id
-            | LetRec (FunDefF f) (ExpF f)
-            | App Id [Id]
-            | Tuple [Id]
-            | LetTuple [(Id, Type.TypeF f)] Id (ExpF f)
-            | Get Id Id
-            | Put Id Id Id
-            | ExtArray Id
-            | ExtFunApp Id [Id]
+data FunDef = FunDef { name :: (Id, Type.Type)
+                     , args :: [(Id, Type.Type)]
+                     , body :: Exp
+                     }
             deriving Show
 
-data FunDefF f = FunDef { name :: (Id, Type.TypeF f)
-                        , args :: [(Id, Type.TypeF f)]
-                        , body :: ExpF f
-                        }
-                 deriving Show
-
 -- free variables
-fv :: ExpF f -> Set.Set Id
+fv :: Exp -> Set.Set Id
 fv Unit = Set.empty
 fv (Int _) = Set.empty
 fv (Float _) = Set.empty
@@ -72,9 +69,9 @@ fv (ExtFunApp _ xs) = Set.fromList xs
 fv (Put x y z) = Set.fromList [x, y, z]
 fv (LetTuple xs y e) = Set.insert y (Set.difference (fv e) (Set.fromList (map fst xs)))
 
-type M = ReaderT (Map.Map Id (Type.TypeF Identity)) (StateT Int (Either String))
+type M = ReaderT (Map.Map Id Type.Type) (StateT Int (Either String))
 
-insertLet :: M (ExpF f, Type.TypeF f) -> (Id -> M (ExpF f, r)) -> M (ExpF f, r)
+insertLet :: M (Exp, Type.Type) -> (Id -> M (Exp, r)) -> M (Exp, r)
 insertLet m k = do (e, t) <- m
                    case e of
                      Var x -> k x
@@ -82,7 +79,7 @@ insertLet m k = do (e, t) <- m
                              (e', t') <- k x
                              pure (Let (x, t) e e', t')
 
-g :: Map.Map Id (Type.TypeF Identity) -> Syntax.ExpF Identity -> M (ExpF Identity, Type.TypeF Identity)
+g :: Map.Map Id Type.Type -> Syntax.Exp -> M (Exp, Type.Type)
 g _ Syntax.Unit = pure (Unit, Type.Unit)
 g _ (Syntax.Bool b) = pure (Int (if b then 1 else 0), Type.Int)
 g _ (Syntax.Int i) = pure (Int i, Type.Int)
@@ -181,6 +178,6 @@ g env (Syntax.Put e1 e2 e3) = insertLet (g env e1)
                                       $ \y -> insertLet (g env e3)
                                               $ \z -> pure (Put x y z, Type.Unit)
 
-f :: Syntax.ExpF Identity -> M (ExpF Identity)
+f :: Syntax.Exp -> M Exp
 f e = do (e', _) <- g Map.empty e
          pure e'

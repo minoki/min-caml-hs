@@ -75,7 +75,7 @@ ppIdOrImm (V x) = reg x
 ppIdOrImm (C i) = '#' : show i
 
 -- 末尾かどうかを表すデータ型
-data Dest = Tail Type | NonTail Id
+data Dest = Tail Type.Type | NonTail Id
 
 -- 命令列のアセンブリ生成
 g :: Dest -> Instructions -> M ()
@@ -246,7 +246,7 @@ g' (NonTail a) (CallDir (Id.Label x) ys zs) = do
     else
     pure ()
 
-g'_tail_if :: Type -> Instructions -> Instructions -> String -> String -> M ()
+g'_tail_if :: Type.Type -> Instructions -> Instructions -> String -> String -> M ()
 g'_tail_if t e1 e2 b bn = do
   b_else <- genId (b ++ "_else")
   emit $ "\t" ++ bn ++ " " ++ b_else ++ "\n"

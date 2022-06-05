@@ -3,17 +3,14 @@ import Prelude hiding (concat)
 import qualified Id
 import Id (Id)
 import qualified Type
-import Data.Functor.Identity
 import qualified Data.Vector as V
-
-type Type = Type.TypeF Identity
 
 data IdOrImm = V Id
              | C Int
              deriving Show
 
 data Instructions = Ans Exp
-                  | Let (Id, Type) Exp Instructions
+                  | Let (Id, Type.Type) Exp Instructions
                   deriving Show
 
 data Exp
@@ -54,14 +51,14 @@ data FunDef = FunDef { name :: Id.Label
                      , args :: [Id] -- integer/pointer arguments
                      , fargs :: [Id] -- float arguments
                      , body :: Instructions
-                     , ret :: Type
+                     , ret :: Type.Type
                      }
             deriving Show
 
 data Prog = Prog [(Id.Label, Double)] [FunDef] Instructions
           deriving Show
 
-concat :: Instructions -> (Id.Id, Type) -> Instructions -> Instructions
+concat :: Instructions -> (Id.Id, Type.Type) -> Instructions -> Instructions
 concat (Ans exp) xt e2 = Let xt exp e2
 concat (Let yt exp e1') xt e2 = Let yt exp (concat e1' xt e2)
 
