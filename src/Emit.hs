@@ -307,7 +307,7 @@ f :: Handle -> Prog -> StateT Int IO ()
 f oc (Prog dat fundefs e) = do
   lift $ do
     hPutStrLn stderr "generating assembly..."
-    hPutStr oc "\t.rodata\n"
+    hPutStr oc "\t.text\n"
     hPutStr oc "\t.align 3\n" -- 8-byte aligned
     forM_ dat $ \(Id.Label x, d) -> do
       hPutStr oc $ x ++ ": // " ++ show d ++ "\n"
