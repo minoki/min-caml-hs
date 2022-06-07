@@ -148,7 +148,7 @@ g env (Syntax.App (Syntax.Var f) e2s) | not (Map.member f env) = do
 g env (Syntax.App e1 e2s) = do g_e1@(_, u) <- g env e1
                                case u of
                                  Type.Fun _ t -> insertLet (pure g_e1)
-                                                 $ \f -> let bind xs [] = pure (ExtFunApp f xs, t)
+                                                 $ \f -> let bind xs [] = pure (App f xs, t)
                                                              bind xs (e2 : e2s) = insertLet (g env e2)
                                                                                   $ \x -> bind (xs ++ [x]) e2s
                                                          in bind [] e2s

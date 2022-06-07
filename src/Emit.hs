@@ -147,7 +147,7 @@ g' (NonTail _) (Save x y) = do stackset <- getStackSet
                                  error (y ++ " not in stack")
 -- 復帰の仮想命令の実装
 g' (NonTail x) (Restore y) = do o <- offset y
-                                emit ("\tldr " ++ reg x ++ ", [" ++ reg y ++ ", #" ++ show o ++ "]\n")
+                                emit ("\tldr " ++ reg x ++ ", [" ++ reg reg_sp ++ ", #" ++ show o ++ "]\n")
 -- 末尾だったら計算結果を第一レジスタにセットしてret
 g' (Tail _) exp@Nop = do g' (NonTail "_") exp
                          emit "\tret\n"
