@@ -16,6 +16,17 @@ data TypeF f = Unit
 
 type Type = TypeF (Const Void)
 
+instance Eq1 f => Eq (TypeF f) where
+  Unit == Unit = True
+  Bool == Bool = True
+  Int == Int = True
+  Float == Float = True
+  Fun xs y == Fun xs' y' = xs == xs' && y == y'
+  Tuple xs == Tuple xs' = xs == xs'
+  Array t == Array u = t == u
+  Var f == Var g = liftEq (==) f g
+  _ == _ = False
+
 instance Show1 f => Show (TypeF f) where
   showsPrec prec x = case x of
                        Unit -> showString "Unit"
