@@ -36,6 +36,7 @@ executable min-caml
                     , Closure
                     , AArch64Asm
                     , Virtual
+                    , RegAlloc
                     , Emit
 
     -- LANGUAGE extensions used by modules in this package.

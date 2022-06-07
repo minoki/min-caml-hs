@@ -6,6 +6,7 @@ import qualified KNormal
 import qualified Alpha
 import qualified Closure
 import qualified Virtual
+import qualified RegAlloc
 import qualified Emit
 import Control.Monad.State.Strict
 import Control.Monad.Reader
@@ -32,5 +33,7 @@ main = do
                       case Virtual.f prog state''' of
                         Left msg -> putStrLn msg
                         Right (prog', state'''') -> do
-                          ((), _) <- runStateT (Emit.f stdout prog') state''''
+                          let prog'' = RegAlloc.f prog'
+                          print prog''
+                          ((), _) <- runStateT (Emit.f stdout prog'') state''''
                           pure ()

@@ -1,4 +1,5 @@
 module Virtual where
+import Prelude hiding (seq)
 import qualified Type
 import qualified Id
 import qualified Closure

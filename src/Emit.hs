@@ -60,7 +60,11 @@ locate x = loc <$> getStackMap
                      | otherwise = map succ (loc zs)
 
 offset :: Id -> M Int
-offset x = (8 *) . head <$> locate x
+offset x = do locs <- locate x
+              case locs of
+                l : _ -> pure (8 * l)
+                [] -> do stackmap <- getStackMap
+                         fail $ "variable " ++ x ++ " was not found in the stack map " ++ show stackmap
 
 stacksize :: M Int
 stacksize = do stackmap <- getStackMap

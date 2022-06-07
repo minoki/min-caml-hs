@@ -4,6 +4,7 @@ import qualified Id
 import Id (Id)
 import qualified Type
 import qualified Data.Vector as V
+import qualified Data.Set as Set
 
 data IdOrImm = V Id
              | C Int
@@ -58,9 +59,8 @@ data FunDef = FunDef { name :: Id.Label
 data Prog = Prog [(Id.Label, Double)] [FunDef] Instructions
           deriving Show
 
-concat :: Instructions -> (Id.Id, Type.Type) -> Instructions -> Instructions
-concat (Ans exp) xt e2 = Let xt exp e2
-concat (Let yt exp e1') xt e2 = Let yt exp (concat e1' xt e2)
+seq :: Exp -> Instructions -> Instructions
+seq e1 e2 = Let ({- gentmp -} "_", Type.Unit) e1 e2
 
 -- 先頭の % はemit時に外す
 allregs :: [Id]
@@ -103,3 +103,58 @@ reg_hp = "%x1"
 -- return address
 reg_ra :: Id
 reg_ra = "%x30"
+
+is_reg :: Id -> Bool
+is_reg ('%' : _) = True
+is_reg _ = False
+
+removeAndUniq :: Set.Set Id -> [Id] -> [Id]
+removeAndUniq xs [] = []
+removeAndUniq xs (x : ys) | Set.member x xs = removeAndUniq xs ys
+                          | otherwise = x : removeAndUniq (Set.insert x xs) ys
+
+fvIdOrImm :: IdOrImm -> [Id]
+fvIdOrImm (V x) = [x]
+fvIdOrImm _ = []
+
+-- free variables in the order of use
+fvExp :: Exp -> [Id]
+fvExp Nop = []
+fvExp (Set _) = []
+fvExp (SetL _ ) = []
+fvExp (Comment _) = []
+fvExp (Restore _) = []
+fvExp (Mov x) = [x]
+fvExp (Neg x) = [x]
+fvExp (FMovD x) = [x]
+fvExp (FNegD x) = [x]
+fvExp (Save x _) = [x]
+fvExp (Add x y') = x : fvIdOrImm y'
+fvExp (Sub x y') = x : fvIdOrImm y'
+fvExp (SLL x y') = x : fvIdOrImm y'
+fvExp (Ld x y') = x : fvIdOrImm y'
+fvExp (LdDF x y') = x : fvIdOrImm y'
+fvExp (St x y y') = x : y : fvIdOrImm y'
+fvExp (StDF x y y') = x : y : fvIdOrImm y'
+fvExp (FAddD x y) = [x, y]
+fvExp (FSubD x y) = [x, y]
+fvExp (FMulD x y) = [x, y]
+fvExp (FDivD x y) = [x, y]
+fvExp (IfEq x y' e1 e2) = x : fvIdOrImm y' ++ removeAndUniq Set.empty (fv e1 ++ fv e2)
+fvExp (IfLE x y' e1 e2) = x : fvIdOrImm y' ++ removeAndUniq Set.empty (fv e1 ++ fv e2)
+fvExp (IfGE x y' e1 e2) = x : fvIdOrImm y' ++ removeAndUniq Set.empty (fv e1 ++ fv e2)
+fvExp (IfFEq x y e1 e2) = x : y : removeAndUniq Set.empty (fv e1 ++ fv e2)
+fvExp (IfFLE x y e1 e2) = x : y : removeAndUniq Set.empty (fv e1 ++ fv e2)
+fvExp (CallCls x ys zs) = x : ys ++ zs
+fvExp (CallDir _ ys zs) = ys ++ zs
+
+fvInstructions :: Instructions -> [Id]
+fvInstructions (Ans exp) = fvExp exp
+fvInstructions (Let (x, t) exp e) = fvExp exp ++ removeAndUniq (Set.singleton x) (fvInstructions e)
+
+fv :: Instructions -> [Id]
+fv e = removeAndUniq Set.empty (fvInstructions e)
+
+concat :: Instructions -> (Id.Id, Type.Type) -> Instructions -> Instructions
+concat (Ans exp) xt e2 = Let xt exp e2
+concat (Let yt exp e1') xt e2 = Let yt exp (concat e1' xt e2)
