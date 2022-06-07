@@ -1,14 +1,14 @@
 module Virtual where
-import Prelude hiding (seq)
-import qualified Type
-import qualified Id
+import           AArch64Asm
 import qualified Closure
-import AArch64Asm
-import Control.Monad.State.Strict
-import qualified Data.Set as Set
-import qualified Data.Map.Strict as Map
+import           Control.Monad.Except
+import           Control.Monad.State.Strict
 import qualified Data.List as List
-import Control.Monad.Except
+import qualified Data.Map.Strict as Map
+import qualified Data.Set as Set
+import qualified Id
+import           MyPrelude
+import qualified Type
 
 -- 状態：
 -- * 識別子生成のためのカウンター
@@ -80,9 +80,9 @@ g env (Closure.Let (x, t1) e1 e2) = do e1' <- g env e1
                                        e2' <- g (Map.insert x t1 env) e2
                                        pure $ AArch64Asm.concat e1' (x, t1) e2'
 g env (Closure.Var x) = case env Map.! x of
-                          Type.Unit -> pure $ Ans Nop
+                          Type.Unit  -> pure $ Ans Nop
                           Type.Float -> pure $ Ans $ FMovD x
-                          _ -> pure $ Ans $ Mov x
+                          _          -> pure $ Ans $ Mov x
 g env (Closure.MakeCls (x, t) (Closure.Closure { Closure.entry = l, Closure.actualFv = ys }) e2)
   = do e2' <- g (Map.insert x t env) e2
        let (offset, store_fv) = expand (map (\y -> (y, env Map.! y)) ys)

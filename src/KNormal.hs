@@ -1,14 +1,15 @@
 module KNormal where
+import           Control.Monad.Except
+import           Control.Monad.Reader
+import           Control.Monad.State.Strict
+import qualified Data.List as List
+import qualified Data.Map.Strict as Map
+import qualified Data.Set as Set
+import           Id (Id)
 import qualified Id
-import Id (Id)
+import           MyPrelude
 import qualified Syntax
 import qualified Type
-import qualified Data.Set as Set
-import qualified Data.Map.Strict as Map
-import Control.Monad.Reader
-import Control.Monad.State.Strict
-import Control.Monad.Except
-import qualified Data.List as List
 
 data Exp = Unit
          | Int Int

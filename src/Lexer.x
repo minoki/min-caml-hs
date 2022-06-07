@@ -1,8 +1,8 @@
 {
 module Lexer where
-import Prelude hiding (getChar)
-import Data.Char
+import           Data.Char
 import qualified Id
+import           MyPrelude hiding (getChar)
 import qualified Type
 }
 

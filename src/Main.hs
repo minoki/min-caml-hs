@@ -1,16 +1,17 @@
 module Main where
-import qualified Lexer
-import qualified Parser
-import qualified Typing
-import qualified KNormal
 import qualified Alpha
 import qualified Closure
-import qualified Virtual
-import qualified RegAlloc
+import           Control.Monad.Reader
+import           Control.Monad.State.Strict
 import qualified Emit
-import Control.Monad.State.Strict
-import Control.Monad.Reader
-import System.IO
+import qualified KNormal
+import qualified Lexer
+import           MyPrelude
+import qualified Parser
+import qualified RegAlloc
+import           System.IO
+import qualified Typing
+import qualified Virtual
 
 main :: IO ()
 main = do

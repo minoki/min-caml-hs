@@ -1,8 +1,9 @@
 module Syntax where
-import Id
+import           Data.Functor.Const
+import           Data.Void
+import           Id
+import           MyPrelude
 import qualified Type as T
-import Data.Void
-import Data.Functor.Const
 
 type Exp = ExpF (Const Void)
 

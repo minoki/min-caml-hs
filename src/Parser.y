@@ -1,12 +1,13 @@
 {
 module Parser where
+import           Control.Monad.Except
+import           Control.Monad.State.Strict
+import           Data.Functor.Identity
 import qualified Id
-import qualified Type
-import qualified Syntax as S
 import qualified Lexer as L
-import Data.Functor.Identity
-import Control.Monad.Except
-import Control.Monad.State.Strict
+import           Prelude
+import qualified Syntax as S
+import qualified Type
 }
 
 %name parseExp exp

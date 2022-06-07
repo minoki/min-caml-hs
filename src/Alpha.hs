@@ -1,10 +1,11 @@
 module Alpha where
-import qualified Id
-import Id (Id)
-import KNormal (Exp(..), FunDef(..))
-import Control.Monad.State.Strict
-import qualified Data.Map.Strict as Map
+import           Control.Monad.State.Strict
 import qualified Data.List as List
+import qualified Data.Map.Strict as Map
+import           Id (Id)
+import qualified Id
+import           KNormal (Exp (..), FunDef (..))
+import           MyPrelude
 
 type M = State Int
 

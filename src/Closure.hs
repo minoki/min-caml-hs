@@ -1,14 +1,15 @@
 module Closure where
-import Id (Id)
-import qualified Id
-import qualified Type
-import qualified KNormal
+import           Control.Monad.State.Strict
+import qualified Data.List as List
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
-import qualified Data.List as List
-import Control.Monad.State.Strict
+import           Id (Id)
+import qualified Id
+import qualified KNormal
+import           MyPrelude
+import qualified Type
 
-data Closure = Closure { entry :: Id.Label
+data Closure = Closure { entry    :: Id.Label
                        , actualFv :: [Id]
                        }
              deriving Show
@@ -38,10 +39,10 @@ data Exp = Unit
          | ExtArray Id.Label
          deriving Show
 
-data FunDef = FunDef { name :: (Id.Label, Type.Type)
-                     , args :: [(Id, Type.Type)]
+data FunDef = FunDef { name     :: (Id.Label, Type.Type)
+                     , args     :: [(Id, Type.Type)]
                      , formalFv :: [(Id, Type.Type)]
-                     , body :: Exp
+                     , body     :: Exp
                      }
             deriving Show
 

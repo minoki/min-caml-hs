@@ -1,14 +1,14 @@
 {-# LANGUAGE BangPatterns #-}
 module RegAlloc where
-import Prelude hiding (concat, seq)
-import qualified Id
-import qualified Type
-import AArch64Asm
-import Id (Id)
-import qualified Data.Set as Set
-import qualified Data.Map.Strict as Map
+import           AArch64Asm
+import           Control.Exception (assert)
 import qualified Data.List as List
-import Control.Exception (assert)
+import qualified Data.Map.Strict as Map
+import qualified Data.Set as Set
+import           Id (Id)
+import qualified Id
+import           MyPrelude
+import qualified Type
 
 -- for register coalescing
 -- [XXX] Callがあったら、そこから先は無意味というか逆効果なので追わない。
@@ -55,9 +55,9 @@ data AllocResult = Alloc Id -- allocated register
 alloc :: (Id, Type.Type) -> Instructions -> Map.Map Id Id -> Id -> Type.Type -> AllocResult
 alloc dest cont regenv x t = assert (not (Map.member x regenv))
   $ let all = case t of
-                Type.Unit -> ["%x0"] -- dummy
+                Type.Unit  -> ["%x0"] -- dummy
                 Type.Float -> allfregs
-                _ -> allregs
+                _          -> allregs
     in if all == ["%x0"] then
          Alloc "%x0"
        else if is_reg x then
@@ -90,12 +90,12 @@ add x r regenv | is_reg x = assert (x == r) regenv
 find :: Id -> Type.Type -> Map.Map Id Id -> Either (Id, Type.Type) Id
 find x t regenv | is_reg x = Right x
                 | otherwise = case Map.lookup x regenv of
-                                Just y -> Right y
+                                Just y  -> Right y
                                 Nothing -> Left (x, t)
 
 find' :: IdOrImm -> Map.Map Id Id -> Either (Id, Type.Type) IdOrImm
 find' (V x) regenv = V <$> find x Type.Int regenv
-find' c _ = Right c
+find' c _          = Right c
 
 g :: (Id, Type.Type) -> Instructions -> Map.Map Id Id -> Instructions -> (Instructions, Map.Map Id Id)
 g dest cont regenv (Ans exp) = g'_and_restore dest cont regenv exp
@@ -212,9 +212,9 @@ h (FunDef { name = Id.Label x, args = ys, fargs = zs, body = e, ret = t })
                                                (farg_regs ++ [fr], assert (not (is_reg z)) $ Map.insert z fr regenv))
                                 ([], regenv') (zip zs allfregs)
         a = case t of
-              Type.Unit -> "_" -- オリジナルではId.gentmp Type.Unitしている
+              Type.Unit  -> "_" -- オリジナルではId.gentmp Type.Unitしている
               Type.Float -> head allfregs
-              _ -> head allregs
+              _          -> head allregs
         (e', _) = g (a, t) (Ans (Mov a)) regenv'' e
     in FunDef { name = Id.Label x, args = arg_regs, fargs = farg_regs, body = e', ret = t }
 

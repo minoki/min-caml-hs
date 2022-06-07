@@ -1,18 +1,19 @@
 {-# LANGUAGE NumericUnderscores #-}
 module Emit where
-import Id (Id)
-import qualified Id
-import qualified Type
-import AArch64Asm
-import GHC.Float (castDoubleToWord64)
-import Control.Monad.State.Strict
-import qualified Data.Set as Set
+import           AArch64Asm
+import           Control.Monad
+import           Control.Monad.Reader
+import           Control.Monad.State.Strict
+import           Data.Bits
 import qualified Data.List as List
-import Control.Monad.Reader
-import System.IO
-import Data.Bits
-import Control.Monad
-import Numeric
+import qualified Data.Set as Set
+import           GHC.Float (castDoubleToWord64)
+import           Id (Id)
+import qualified Id
+import           MyPrelude
+import           Numeric
+import           System.IO
+import qualified Type
 
 -- 状態：
 -- * ラベル生成用カウンター
@@ -72,7 +73,7 @@ stacksize = do stackmap <- getStackMap
 
 reg :: Id -> String
 reg ('%' : name) = name
-reg name = "<" ++ name ++ ">" -- for debug
+reg name         = "<" ++ name ++ ">" -- for debug
 
 ppIdOrImm :: IdOrImm -> String
 ppIdOrImm (V x) = reg x

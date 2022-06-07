@@ -1,9 +1,10 @@
 module Type where
-import Control.Monad.ST
-import Data.STRef
-import Data.Functor.Classes
-import Data.Functor.Const
-import Data.Void
+import           Control.Monad.ST
+import           Data.Functor.Classes
+import           Data.Functor.Const
+import           Data.STRef
+import           Data.Void
+import           MyPrelude
 
 data TypeF f = Unit
              | Bool
@@ -17,15 +18,15 @@ data TypeF f = Unit
 type Type = TypeF (Const Void)
 
 instance Eq1 f => Eq (TypeF f) where
-  Unit == Unit = True
-  Bool == Bool = True
-  Int == Int = True
-  Float == Float = True
+  Unit == Unit           = True
+  Bool == Bool           = True
+  Int == Int             = True
+  Float == Float         = True
   Fun xs y == Fun xs' y' = xs == xs' && y == y'
-  Tuple xs == Tuple xs' = xs == xs'
-  Array t == Array u = t == u
-  Var f == Var g = liftEq (==) f g
-  _ == _ = False
+  Tuple xs == Tuple xs'  = xs == xs'
+  Array t == Array u     = t == u
+  Var f == Var g         = liftEq (==) f g
+  _ == _                 = False
 
 instance Show1 f => Show (TypeF f) where
   showsPrec prec x = case x of
@@ -43,11 +44,11 @@ genTyp = do r <- newSTRef Nothing
             return (Var r)
 
 mapTypeM :: Applicative m => (f (Maybe (TypeF f)) -> m (TypeF g)) -> TypeF f -> m (TypeF g)
-mapTypeM _ Unit = pure Unit
-mapTypeM _ Bool = pure Bool
-mapTypeM _ Int = pure Int
-mapTypeM _ Float = pure Float
+mapTypeM _ Unit       = pure Unit
+mapTypeM _ Bool       = pure Bool
+mapTypeM _ Int        = pure Int
+mapTypeM _ Float      = pure Float
 mapTypeM f (Fun xs y) = Fun <$> traverse (mapTypeM f) xs <*> mapTypeM f y
 mapTypeM f (Tuple xs) = Tuple <$> traverse (mapTypeM f) xs
-mapTypeM f (Array x) = Array <$> mapTypeM f x
-mapTypeM f (Var x) = f x
+mapTypeM f (Array x)  = Array <$> mapTypeM f x
+mapTypeM f (Var x)    = f x

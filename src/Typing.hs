@@ -1,16 +1,17 @@
 module Typing where
-import qualified Id
-import qualified Type
-import qualified Syntax as S
-import qualified Data.Map.Strict as Map
-import Control.Monad
-import Control.Monad.ST
-import Data.STRef
-import Control.Monad.State.Strict
-import Control.Monad.Except
-import Control.Monad.Trans.Except
+import           Control.Monad
+import           Control.Monad.Except
+import           Control.Monad.ST
+import           Control.Monad.State.Strict
+import           Control.Monad.Trans.Except
+import           Data.Functor.Identity
 import qualified Data.List as List
-import Data.Functor.Identity
+import qualified Data.Map.Strict as Map
+import           Data.STRef
+import qualified Id
+import           MyPrelude
+import qualified Syntax as S
+import qualified Type
 
 type Env s = Map.Map Id.Id (Type.TypeF (STRef s))
 type M s = StateT (Map.Map Id.Id (Type.TypeF (STRef s))) (ExceptT String (ST s))
@@ -20,7 +21,7 @@ orM a b = do r <- a
              if r then pure True else b
 
 anyM :: Monad m => (a -> m Bool) -> [a] -> m Bool
-anyM _ [] = pure False
+anyM _ []     = pure False
 anyM f (x:xs) = f x `orM` anyM f xs
 
 occur :: STRef s (Maybe (Type.TypeF (STRef s))) -> Type.TypeF (STRef s) -> ST s Bool

@@ -1,10 +1,10 @@
 module AArch64Asm where
-import Prelude hiding (concat)
-import qualified Id
-import Id (Id)
-import qualified Type
-import qualified Data.Vector as V
 import qualified Data.Set as Set
+import qualified Data.Vector as V
+import           Id (Id)
+import qualified Id
+import           MyPrelude
+import qualified Type
 
 data IdOrImm = V Id
              | C Int
@@ -48,11 +48,11 @@ data Exp
   | Restore Id
   deriving Show
 
-data FunDef = FunDef { name :: Id.Label
-                     , args :: [Id] -- integer/pointer arguments
+data FunDef = FunDef { name  :: Id.Label
+                     , args  :: [Id] -- integer/pointer arguments
                      , fargs :: [Id] -- float arguments
-                     , body :: Instructions
-                     , ret :: Type.Type
+                     , body  :: Instructions
+                     , ret   :: Type.Type
                      }
             deriving Show
 
@@ -106,7 +106,7 @@ reg_ra = "%x30"
 
 is_reg :: Id -> Bool
 is_reg ('%' : _) = True
-is_reg _ = False
+is_reg _         = False
 
 removeAndUniq :: Set.Set Id -> [Id] -> [Id]
 removeAndUniq xs [] = []
@@ -115,7 +115,7 @@ removeAndUniq xs (x : ys) | Set.member x xs = removeAndUniq xs ys
 
 fvIdOrImm :: IdOrImm -> [Id]
 fvIdOrImm (V x) = [x]
-fvIdOrImm _ = []
+fvIdOrImm _     = []
 
 -- free variables in the order of use
 fvExp :: Exp -> [Id]
@@ -156,5 +156,5 @@ fv :: Instructions -> [Id]
 fv e = removeAndUniq Set.empty (fvInstructions e)
 
 concat :: Instructions -> (Id.Id, Type.Type) -> Instructions -> Instructions
-concat (Ans exp) xt e2 = Let xt exp e2
+concat (Ans exp) xt e2        = Let xt exp e2
 concat (Let yt exp e1') xt e2 = Let yt exp (concat e1' xt e2)
