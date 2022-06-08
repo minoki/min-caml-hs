@@ -48,6 +48,7 @@ executable min-caml
                     , containers ^>=0.6.5.1
                     , transformers ^>=0.6.0.4
                     , vector ^>=0.12.3.1
+                    , optparse-applicative ^>=0.17.0.0
     hs-source-dirs:   src
     default-language: Haskell2010
     ghc-options:      -Wall -Wno-name-shadowing -fno-ignore-asserts
