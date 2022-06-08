@@ -3,6 +3,8 @@ import           AArch64Asm
 import qualified Closure
 import           Control.Monad.Except
 import           Control.Monad.State.Strict
+import           Data.Foldable (foldlM)
+import           Data.Functor.Identity
 import qualified Data.List as List
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
@@ -26,25 +28,25 @@ sameFloat x y = x == y && isNegativeZero x == isNegativeZero y
 addList :: Ord k => [(k, a)] -> Map.Map k a -> Map.Map k a
 addList xts m = List.foldl' (\m (y, t) -> Map.insert y t m) m xts
 
-classify :: [(id, Type.Type)] -> acc -> {- float -} (acc -> id -> acc) -> {- integer -} (acc -> id -> Type.Type -> acc) -> acc
-classify xts ini addf addi = List.foldl' (\acc (x, t) -> case t of
-                                                           Type.Unit -> acc
-                                                           Type.Float -> addf acc x
-                                                           _ -> addi acc x t) ini xts
+classify :: Monad m => [(id, Type.Type)] -> acc -> {- float -} (acc -> id -> m acc) -> {- integer -} (acc -> id -> Type.Type -> m acc) -> m acc
+classify xts ini addf addi = foldlM (\acc (x, t) -> case t of
+                                                      Type.Unit  -> pure acc
+                                                      Type.Float -> addf acc x
+                                                      _          -> addi acc x t) ini xts
 
 separate :: [(id, Type.Type)] -> ({- integers -} [id], {- floats -} [id])
-separate xts = classify
+separate xts = runIdentity $ classify
                xts
                ([], [])
-               (\(int, float) x -> (int, float ++ [x]))
-               (\(int, float) x _ -> (int ++ [x], float))
+               (\(int, float) x -> Identity (int, float ++ [x]))
+               (\(int, float) x _ -> Identity (int ++ [x], float))
 
-expand :: [(id, Type.Type)] -> (Int, acc) -> {- float -} (id -> Int -> acc -> acc) -> {- integer -} (id -> Type.Type -> Int -> acc -> acc) -> (Int, acc)
+expand :: Monad m => [(id, Type.Type)] -> (Int, acc) -> {- float -} (id -> Int -> acc -> m acc) -> {- integer -} (id -> Type.Type -> Int -> acc -> m acc) -> m (Int, acc)
 expand xts ini addf addi = classify
                            xts
                            ini
-                           (\(offset, acc) x -> (offset + 8, addf x offset acc)) -- offset is always 8-byte aligned
-                           (\(offset, acc) x t -> (offset + 8, addi x t offset acc)) -- integer/pointer size: 8 bytes
+                           (\(offset, acc) x -> (,) (offset + 8) <$> addf x offset acc) -- offset is always 8-byte aligned
+                           (\(offset, acc) x t -> (,) (offset + 8) <$> addi x t offset acc) -- integer/pointer size: 8 bytes
 
 g :: Map.Map Id.Id Type.Type -> Closure.Exp -> M Instructions
 g _ Closure.Unit = pure $ Ans Nop
@@ -84,41 +86,41 @@ g env (Closure.Var x) = case env Map.! x of
                           _          -> pure $ Ans $ Mov x
 g env (Closure.MakeCls (x, t) (Closure.Closure { Closure.entry = l, Closure.actualFv = ys }) e2)
   = do e2' <- g (Map.insert x t env) e2
-       let (offset, store_fv) = expand (map (\y -> (y, env Map.! y)) ys)
-                                (8, e2')
-                                (\y offset store_fv -> seq (StDF y x (C offset)) store_fv)
-                                (\y _ offset store_fv -> seq (St y x (C offset)) store_fv)
+       (offset, store_fv) <- expand (map (\y -> (y, env Map.! y)) ys)
+                             (8, e2')
+                             (\y offset store_fv -> seq (StDF y x (C offset)) store_fv)
+                             (\y _ offset store_fv -> seq (St y x (C offset)) store_fv)
        z <- Id.genId "l"
-       pure $ Let (x, t) (Mov reg_hp)
-         $ Let (reg_hp, Type.Int) (Add reg_hp (C offset))
-         $ Let (z, Type.Int) (SetL l)
-         $ seq (St z x (C 0)) store_fv
+       Let (x, t) (Mov reg_hp)
+         . Let (reg_hp, Type.Int) (Add reg_hp (C offset))
+         . Let (z, Type.Int) (SetL l)
+         <$> seq (St z x (C 0)) store_fv
 g env (Closure.AppCls x ys) = do let (int, float) = separate (map (\y -> (y, env Map.! y)) ys)
                                  pure $ Ans $ CallCls x int float
 g env (Closure.AppDir (Id.Label x) ys) = do let (int, float) = separate (map (\y -> (y, env Map.! y)) ys)
                                             pure $ Ans $ CallDir (Id.Label x) int float
 g env (Closure.Tuple xs) = do y <- Id.genId "t"
-                              let (offset, store) = expand (map (\x -> (x, env Map.! x)) xs)
-                                                    (0, Ans (Mov y))
-                                                    (\x offset store -> seq (StDF x y (C offset)) store)
-                                                    (\x _ offset store -> seq (St x y (C offset)) store)
+                              (offset, store) <- expand (map (\x -> (x, env Map.! x)) xs)
+                                                 (0, Ans (Mov y))
+                                                 (\x offset store -> seq (StDF x y (C offset)) store)
+                                                 (\x _ offset store -> seq (St x y (C offset)) store)
                               pure $ Let (y, Type.Tuple (map (env Map.!) xs)) (Mov reg_hp)
                                 $ Let (reg_hp, Type.Int) (Add reg_hp (C offset))
                                 store
 g env (Closure.LetTuple xts y e2) = do
   let s = Closure.fv e2
   e2' <- g (List.foldl (\m (x, t) -> Map.insert x t m) env xts) e2
-  let (_offset, load) = expand
+  let (_offset, load) = runIdentity $ expand
                         xts
                         (0, e2')
-                        (\x offset load -> if not (Set.member x s) then
-                                             load
-                                           else
-                                             Let (x, Type.Float) (LdDF y (C offset)) load)
-                        (\x t offset load -> if not (Set.member x s) then
-                                               load
-                                             else
-                                               Let (x, t) (Ld y (C offset)) load)
+                        (\x offset load -> Identity $ if not (Set.member x s) then
+                                                        load
+                                                      else
+                                                        Let (x, Type.Float) (LdDF y (C offset)) load)
+                        (\x t offset load -> Identity $ if not (Set.member x s) then
+                                                          load
+                                                        else
+                                                          Let (x, t) (Ld y (C offset)) load)
   pure load
 g env (Closure.Get x y) = do offset <- Id.genId "o"
                              pure $ case env Map.! x of
@@ -142,11 +144,11 @@ h :: Closure.FunDef -> M FunDef
 h (Closure.FunDef { Closure.name = (Id.Label x, t), Closure.args = yts, Closure.formalFv = zts, Closure.body = e })
   = do let (int, float) = separate yts
        e' <- g (Map.insert x t (addList yts (addList zts Map.empty))) e
-       let (_offset, load) = expand
+       let (_offset, load) = runIdentity $ expand
                              zts
                              (8, e')
-                             (\z offset load -> Let (z, Type.Float) (LdDF reg_cl (C offset)) load)
-                             (\z t offset load -> Let (z, t) (LdDF reg_cl (C offset)) load)
+                             (\z offset load -> Identity $ Let (z, Type.Float) (LdDF reg_cl (C offset)) load)
+                             (\z t offset load -> Identity $ Let (z, t) (LdDF reg_cl (C offset)) load)
        pure $ case t of
                 Type.Fun _ t2 -> FunDef { name = Id.Label x, args = int, fargs = float, body = load, ret = t2 }
                 _ -> error "invalid function type"

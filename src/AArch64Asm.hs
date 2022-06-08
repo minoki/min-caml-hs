@@ -5,6 +5,7 @@ import           Id (Id)
 import qualified Id
 import           MyPrelude
 import qualified Type
+import Control.Monad.State.Class
 
 data IdOrImm = V Id
              | C Int
@@ -59,8 +60,8 @@ data FunDef = FunDef { name  :: Id.Label
 data Prog = Prog [(Id.Label, Double)] [FunDef] Instructions
           deriving Show
 
-seq :: Exp -> Instructions -> Instructions
-seq e1 e2 = Let ({- gentmp -} "_", Type.Unit) e1 e2
+seq :: (MonadState s m, Id.HasCounter s) => Exp -> Instructions -> m Instructions
+seq e1 e2 = (\v -> Let (v, Type.Unit) e1 e2) <$> Id.genTmp Type.Unit
 
 -- 先頭の % はemit時に外す
 allregs :: [Id]

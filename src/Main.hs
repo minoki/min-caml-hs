@@ -76,11 +76,11 @@ main = do
                                 putStrLn "=== Virtual ==="
                                 print prog'
                                 putStrLn "==============="
-                              let prog'' = RegAlloc.f prog'
+                              let (prog'', state''''') = runState (RegAlloc.f prog') state''''
                               when (printIntermediates options) $ do
                                 putStrLn "=== RegAlloc ==="
                                 print prog''
                                 putStrLn "================"
                               withFile outputFilename WriteMode $ \out -> do
-                                ((), _) <- runStateT (Emit.f out prog'') state''''
+                                ((), _) <- runStateT (Emit.f out prog'') state'''''
                                 pure ()
