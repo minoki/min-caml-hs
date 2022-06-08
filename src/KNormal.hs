@@ -70,13 +70,13 @@ fv (ExtFunApp _ xs) = Set.fromList xs
 fv (Put x y z) = Set.fromList [x, y, z]
 fv (LetTuple xs y e) = Set.insert y (Set.difference (fv e) (Set.fromList (map fst xs)))
 
-type M = ReaderT (Map.Map Id Type.Type) (StateT Int (Either String))
+type M = ReaderT (Map.Map Id Type.Type) (StateT Id.Counter (Either String))
 
 insertLet :: M (Exp, Type.Type) -> (Id -> M (Exp, r)) -> M (Exp, r)
 insertLet m k = do (e, t) <- m
                    case e of
                      Var x -> k x
-                     _ -> do x <- state (Id.genTmp t)
+                     _ -> do x <- Id.genTmp t
                              (e', t') <- k x
                              pure (Let (x, t) e e', t')
 

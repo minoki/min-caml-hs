@@ -1,6 +1,7 @@
 {
 module Lexer where
-import           Data.Char
+import           Control.Monad.State.Strict
+import           Data.Char (chr)
 import qualified Id
 import           MyPrelude hiding (getChar)
 import qualified Type
@@ -41,7 +42,7 @@ tokens :-
   in { simpleToken In }
   rec { simpleToken Rec }
   \, { simpleToken Comma }
-  _ { \input len -> Ident <$> genTmp }
+  _ { \_input _len -> Ident <$> genTmp }
   Array\.create { simpleToken ArrayCreate }
   \. { simpleToken Dot }
   \<\- { simpleToken LessMinus }
@@ -49,19 +50,18 @@ tokens :-
   $lower [$lower $upper $digit \_]* { token (\(_, _, _, s) len -> Ident (take len s)) }
 
 {
-newtype AlexUserState = AlexUserState { idCounter :: Int
-                                      }
+type AlexUserState = Id.Counter
 
 alexInitUserState :: AlexUserState
-alexInitUserState = AlexUserState { idCounter = 0 }
+alexInitUserState = Id.initialCounter
 
 simpleToken :: Token -> AlexInput -> Int -> Alex Token
-simpleToken tok = \input len -> return tok
+simpleToken tok = \_input _len -> return tok
 
 genTmp :: Alex Id.Id
 genTmp = do state <- alexGetUserState
-            let (id, idCounter') = Id.genTmp Type.Unit (idCounter state)
-            alexSetUserState (state { idCounter = idCounter' })
+            let (id, idCounter') = runState (Id.genTmp Type.Unit) state
+            alexSetUserState idCounter'
             return id
 
 getChar :: AlexInput -> Maybe (Char, AlexInput)
@@ -72,7 +72,7 @@ getChar input = case alexGetByte input of
 comment :: AlexInput -> Int -> Alex Token
 comment _ _ = do
   input <- alexGetInput
-  go 1 input
+  go (1 :: Int) input
   where
     go 0 input = do alexSetInput input; alexMonadScan
     go n input = do
@@ -81,12 +81,12 @@ comment _ _ = do
         Just ('*', input') -> case getChar input' of
                                 Nothing -> err input'
                                 Just (')', input'') -> go (n - 1) input''
-                                Just ('*', input'') -> go n input'
+                                Just ('*', _input) -> go n input'
                                 Just (_, input'') -> go n input''
         Just ('(', input') -> case getChar input' of
                                 Nothing -> err input'
                                 Just ('*', input'') -> go (n + 1) input''
-                                Just (_, input'') -> go n input'
+                                Just (_, _input) -> go n input'
         Just (_, input') -> go n input'
     err input = do alexSetInput input
                    alexError "unterminated comment."

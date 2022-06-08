@@ -36,7 +36,7 @@ main = do
   case Lexer.runAlex s Lexer.scanAllAndState of
     Left msg -> hPutStrLn stderr ("Lexical error: " ++ msg)
     Right (tokens, state) ->
-      case runStateT (Parser.parseExp tokens) (Lexer.idCounter state) of
+      case runStateT (Parser.parseExp tokens) state of
         Left msg -> hPutStrLn stderr msg
         Right (exp, state') -> do
           when (printIntermediates options) $ do

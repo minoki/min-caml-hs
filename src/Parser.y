@@ -13,7 +13,7 @@ import qualified Type
 %name parseExp exp
 %tokentype { L.Token }
 %error { parseError }
-%monad { StateT Int (Either String) }
+%monad { StateT Id.Counter (Either String) }
 
 %token
   bool { L.Bool $$ }
@@ -171,7 +171,7 @@ right_exp(p) : p { $1 }
 
 -- 一般の式
 exp : if_exp_right { $1 }
-    | if_exp ';' exp {% do { tmp <- genTmp Type.Unit; return (S.Let (tmp, Type.Unit) $1 $3) } }
+    | if_exp ';' exp {% do { tmp <- Id.genTmp Type.Unit; return (S.Let (tmp, Type.Unit) $1 $3) } }
     | let_(exp) { $1 }
 
 fundef : ident formal_args '=' exp { S.FunDef { S.name = addTyp $1, S.args = $2, S.body = $4 } }
@@ -186,11 +186,8 @@ pat : pat ',' ident { $1 ++ [addTyp $3] }
     | ident ',' ident { [addTyp $1, addTyp $3] }
 
 {
-parseError :: [L.Token] -> StateT Int (Either String) a
+parseError :: [L.Token] -> StateT Id.Counter (Either String) a
 parseError _ = throwError "parse error"
-
-genTmp :: Type.TypeF f -> StateT Int (Either String) Id.Id
-genTmp t = state (Id.genTmp t)
 
 addTyp :: a -> (a, Type.TypeF Identity)
 addTyp x = (x, Type.Var (Identity Nothing))

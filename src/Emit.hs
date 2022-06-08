@@ -10,6 +10,7 @@ import qualified Data.Set as Set
 import           GHC.Float (castDoubleToWord64)
 import           Id (Id)
 import qualified Id
+import           Lens.Micro (lens)
 import           MyPrelude
 import           Numeric
 import           System.IO
@@ -19,37 +20,36 @@ import qualified Type
 -- * ラベル生成用カウンター
 -- * すでにSaveされた変数の集合 (stackset)
 -- * Saveされた変数の、スタックにおける位置 (stackmap)
-type M = ReaderT Handle (StateT (Int, Set.Set Id, [Id]) IO)
+data S = S !Id.Counter (Set.Set Id) [Id]
+type M = ReaderT Handle (StateT S IO)
+
+instance Id.HasCounter S where
+  counter = lens (\(S c _ _) -> c) (\(S _ stackset stackmap) c -> S c stackset stackmap)
 
 getStackSet :: M (Set.Set Id)
-getStackSet = gets (\(_, stackset, _) -> stackset)
+getStackSet = gets (\(S _ stackset _) -> stackset)
 
 setStackSet :: Set.Set Id -> M ()
-setStackSet stackset = modify (\(counter, _, stackmap) -> (counter, stackset, stackmap))
+setStackSet stackset = modify (\(S counter _ stackmap) -> S counter stackset stackmap)
 
 getStackMap :: M [Id]
-getStackMap = gets (\(_, _, stackmap) -> stackmap)
+getStackMap = gets (\(S _ _ stackmap) -> stackmap)
 
 setStackMap :: [Id] -> M ()
-setStackMap stackmap = modify (\(counter, stackset, _) -> (counter, stackset, stackmap))
-
-genId :: String -> M Id
-genId name  = lift $ StateT $ \(counter, stackset, stackmap) ->
-                                let (i, counter') = Id.genId name counter
-                                in pure (i, (counter', stackset, stackmap))
+setStackMap stackmap = modify (\(S counter stackset _) -> S counter stackset stackmap)
 
 emit :: String -> M ()
 emit s = do h <- ask
             liftIO $ hPutStr h s
 
 save :: Id -> M ()
-save x = do (counter, stackset, stackmap) <- get
+save x = do S counter stackset stackmap <- get
             let stackset' = Set.insert x stackset
                 stackmap' = if x `elem` stackmap then
                               stackmap
                             else
                               stackmap ++ [x]
-            put (counter, stackset', stackmap')
+            put (S counter stackset' stackmap')
 
 savef :: Id -> M ()
 savef = save
@@ -253,7 +253,7 @@ g' (NonTail a) (CallDir (Id.Label x) ys zs) = do
 
 g'_tail_if :: Type.Type -> Instructions -> Instructions -> String -> String -> M ()
 g'_tail_if t e1 e2 b bn = do
-  b_else <- genId (b ++ "_else")
+  b_else <- Id.genId (b ++ "_else")
   emit $ "\t" ++ bn ++ " " ++ b_else ++ "\n"
   stackset_back <- getStackSet
   g (Tail t) e1
@@ -263,8 +263,8 @@ g'_tail_if t e1 e2 b bn = do
 
 g'_non_tail_if :: Dest -> Instructions -> Instructions -> String -> String -> M ()
 g'_non_tail_if dest e1 e2 b bn = do
-  b_else <- genId (b ++ "_else")
-  b_cont <- genId (b ++ "_cont")
+  b_else <- Id.genId (b ++ "_else")
+  b_cont <- Id.genId (b ++ "_cont")
   emit $ "\t" ++ bn ++ " " ++ b_else
   stackset_back <- getStackSet
   g dest e1
@@ -303,12 +303,12 @@ h (FunDef { name = Id.Label x, args = _, fargs = _, body = e, ret = t }) = do
   setStackMap []
   g (Tail t) e
 
-runM :: M a -> Handle -> StateT Int IO a
+runM :: M a -> Handle -> StateT Id.Counter IO a
 runM m h = StateT $ \counter -> do
-  (result, (counter', _, _)) <- runStateT (runReaderT m h) (counter, Set.empty, [])
+  (result, S counter' _ _) <- runStateT (runReaderT m h) (S counter Set.empty [])
   pure (result, counter')
 
-f :: Handle -> Prog -> StateT Int IO ()
+f :: Handle -> Prog -> StateT Id.Counter IO ()
 f oc (Prog dat fundefs e) = do
   lift $ do
     hPutStrLn stderr "generating assembly..."

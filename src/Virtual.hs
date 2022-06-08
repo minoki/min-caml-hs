@@ -7,19 +7,18 @@ import qualified Data.List as List
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import qualified Id
+import           Lens.Micro (lens)
 import           MyPrelude
 import qualified Type
 
 -- 状態：
 -- * 識別子生成のためのカウンター
 -- * 浮動小数点数の定数テーブル
-type M = StateT (Int, [(Id.Label, Double)]) (Either String)
+data S = S !Id.Counter [(Id.Label, Double)]
+type M = StateT S (Either String)
 
-genId :: String -> M Id.Id
-genId name = do (counter, table) <- get
-                let (l, counter') = Id.genId name counter
-                put (counter', table)
-                pure l
+instance Id.HasCounter S where
+  counter = lens (\(S c _) -> c) (\(S _ t) c -> S c t)
 
 sameFloat :: Double -> Double -> Bool
 sameFloat x y = x == y && isNegativeZero x == isNegativeZero y
@@ -50,13 +49,13 @@ expand xts ini addf addi = classify
 g :: Map.Map Id.Id Type.Type -> Closure.Exp -> M Instructions
 g _ Closure.Unit = pure $ Ans Nop
 g _ (Closure.Int i) = pure $ Ans $ Set i
-g _ (Closure.Float d) = do table <- gets snd
+g _ (Closure.Float d) = do S _ table <- get
                            l <- case List.find (\(_, d') -> sameFloat d d') table of
                              Just (l, _) -> pure l
-                             Nothing -> do l <- Id.Label <$> genId "l"
-                                           modify (\(counter, table) -> (counter, (l, d) : table))
+                             Nothing -> do l <- Id.Label <$> Id.genId "l"
+                                           modify (\(S counter table) -> S counter ((l, d) : table))
                                            pure l
-                           x <- genId "l"
+                           x <- Id.genId "l"
                            pure $ Let (x, Type.Int) (SetL l) (Ans (LdDF x (C 0)))
 g _ (Closure.Neg x) = pure $ Ans $ Neg x
 g _ (Closure.Add x y) = pure $ Ans $ Add x (V y)
@@ -89,7 +88,7 @@ g env (Closure.MakeCls (x, t) (Closure.Closure { Closure.entry = l, Closure.actu
                                 (8, e2')
                                 (\y offset store_fv -> seq (StDF y x (C offset)) store_fv)
                                 (\y _ offset store_fv -> seq (St y x (C offset)) store_fv)
-       z <- genId "l"
+       z <- Id.genId "l"
        pure $ Let (x, t) (Mov reg_hp)
          $ Let (reg_hp, Type.Int) (Add reg_hp (C offset))
          $ Let (z, Type.Int) (SetL l)
@@ -98,7 +97,7 @@ g env (Closure.AppCls x ys) = do let (int, float) = separate (map (\y -> (y, env
                                  pure $ Ans $ CallCls x int float
 g env (Closure.AppDir (Id.Label x) ys) = do let (int, float) = separate (map (\y -> (y, env Map.! y)) ys)
                                             pure $ Ans $ CallDir (Id.Label x) int float
-g env (Closure.Tuple xs) = do y <- genId "t"
+g env (Closure.Tuple xs) = do y <- Id.genId "t"
                               let (offset, store) = expand (map (\x -> (x, env Map.! x)) xs)
                                                     (0, Ans (Mov y))
                                                     (\x offset store -> seq (StDF x y (C offset)) store)
@@ -121,7 +120,7 @@ g env (Closure.LetTuple xts y e2) = do
                                              else
                                                Let (x, t) (Ld y (C offset)) load)
   pure load
-g env (Closure.Get x y) = do offset <- genId "o"
+g env (Closure.Get x y) = do offset <- Id.genId "o"
                              pure $ case env Map.! x of
                                       Type.Array Type.Unit -> Ans Nop
                                       Type.Array Type.Float -> Let (offset, Type.Int) (SLL y (C 3))
@@ -129,7 +128,7 @@ g env (Closure.Get x y) = do offset <- genId "o"
                                       Type.Array _ -> Let (offset, Type.Int) (SLL y (C 3))
                                                       $ Ans (Ld x (V offset))
                                       _ -> error "Get applied to non-array"
-g env (Closure.Put x y z) = do offset <- genId "o"
+g env (Closure.Put x y z) = do offset <- Id.genId "o"
                                pure $ case env Map.! x of
                                         Type.Array Type.Unit -> Ans Nop
                                         Type.Array Type.Float -> Let (offset, Type.Int) (SLL y (C 3))
@@ -152,9 +151,9 @@ h (Closure.FunDef { Closure.name = (Id.Label x, t), Closure.args = yts, Closure.
                 Type.Fun _ t2 -> FunDef { name = Id.Label x, args = int, fargs = float, body = load, ret = t2 }
                 _ -> error "invalid function type"
 
-f :: Closure.Prog -> Int -> Either String (Prog, Int)
-f (Closure.Prog fundefs e) state = flip evalStateT (state, []) $ do
+f :: Closure.Prog -> Id.Counter -> Either String (Prog, Id.Counter)
+f (Closure.Prog fundefs e) state = flip evalStateT (S state []) $ do
   fundefs' <- mapM h fundefs
   e' <- g Map.empty e
-  (state', table) <- get
+  S state' table <- get
   pure (Prog table fundefs' e', state')
