@@ -32,7 +32,7 @@ g env (Var x) = pure (Var (find x env))
 g env (LetRec (FunDef { name = (x, t), args = yts, body = e1 }) e2)
   = do env' <- (\x' -> Map.insert x x' env) <$> state (Id.genId x)
        let ys = map fst yts
-       env'' <- (\ys' -> List.foldl' (\m (y, y') -> Map.insert y y' m) env (zip ys ys')) <$> mapM (state . Id.genId) ys
+       env'' <- (\ys' -> List.foldl' (\m (y, y') -> Map.insert y y' m) env' (zip ys ys')) <$> mapM (state . Id.genId) ys
        fundec <- FunDef (find x env', t) (map (\(y, t) -> (find y env'', t)) yts) <$> g env'' e1
        LetRec fundec <$> g env' e2
 g env (App x ys) = pure (App (find x env) (map (`find` env) ys))
