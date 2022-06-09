@@ -15,6 +15,7 @@ import           MyPrelude
 import qualified Options.Applicative as OA
 import qualified Parser
 import qualified RegAlloc
+import           System.Exit
 import           System.IO
 import qualified Typing
 import qualified Virtual
@@ -42,24 +43,28 @@ main = do
                                   euc_jp <- mkTextEncoding "euc-jp"
                                   peekCStringLen euc_jp cs
   case Lexer.runAlex s Lexer.scanAllAndState of
-    Left msg -> hPutStrLn stderr ("Lexical error: " ++ msg)
+    Left msg -> do hPutStrLn stderr ("Lexical error: " ++ msg)
+                   exitFailure
     Right (tokens, state) ->
       case runStateT (Parser.parseExp tokens) state of
-        Left msg -> hPutStrLn stderr msg
+        Left msg -> do hPutStrLn stderr msg
+                       exitFailure
         Right (exp, state') -> do
           when (printIntermediates options) $ do
             putStrLn "=== Parse ==="
             print exp
             putStrLn "============="
           case Typing.f exp of
-            Left msg -> hPutStrLn stderr msg
+            Left msg -> do hPutStrLn stderr msg
+                           exitFailure
             Right (exp', extenv) -> do
               when (printIntermediates options) $ do
                 putStrLn "=== Type Check ==="
                 print exp'
                 putStrLn "=================="
               case runStateT (runReaderT (KNormal.f exp') extenv) state' of
-                Left msg -> hPutStrLn stderr msg
+                Left msg -> do hPutStrLn stderr msg
+                               exitFailure
                 Right (exp'', state'') -> do
                   when (printIntermediates options) $ do
                     putStrLn "=== KNormal ==="
@@ -78,7 +83,8 @@ main = do
                             print prog
                             putStrLn "==============="
                           case Virtual.f prog state''' of
-                            Left msg -> hPutStrLn stderr msg
+                            Left msg -> do hPutStrLn stderr msg
+                                           exitFailure
                             Right (prog', state'''') -> do
                               when (printIntermediates options) $ do
                                 putStrLn "=== Virtual ==="
