@@ -93,9 +93,9 @@ g dest (Let (x, _) exp e) = do g' (NonTail x) exp
 g' :: Dest -> Exp -> M ()
 g' (NonTail _) Nop = pure ()
 g' (NonTail x) (Set i)
-  | -0x10001 <= i, i <= 0x3ffff = emit ("\tmov " ++ reg x ++ ", #" ++ show i ++ "\n") -- MOV (wide immediate) or MOV (bitmask immediate) or MOV (inverted wide immediate)
-  | 0x3ffff < i, i <= 0xffff_ffff = do emit ("\tmov " ++ reg x ++ ", #" ++ show (i .&. 0xffff) ++ "\n")
-                                       emit ("\tmovk " ++ reg x ++ ", #" ++ show (i `shiftR` 16) ++ ", lsl #16\n")
+  | -0x10001 <= i, i <= 0xffff = emit ("\tmov " ++ reg x ++ ", #" ++ show i ++ "\n") -- MOV (wide immediate) or MOV (inverted wide immediate)
+  | 0xffff < i, i <= 0xffff_ffff = do emit ("\tmov " ++ reg x ++ ", #" ++ show (i .&. 0xffff) ++ "\n")
+                                      emit ("\tmovk " ++ reg x ++ ", #" ++ show (i `shiftR` 16) ++ ", lsl #16\n")
   | 0xffff_ffff < i, i <= 0xffff_ffff_ffff = do emit ("\tmov " ++ reg x ++ ", #" ++ show (i .&. 0xffff) ++ "\n")
                                                 emit ("\tmovk " ++ reg x ++ ", #" ++ show ((i `shiftR` 16) .&. 0xffff) ++ ", lsl #16\n")
                                                 emit ("\tmovk " ++ reg x ++ ", #" ++ show (i `shiftR` 32) ++ ", lsl #32\n")
@@ -265,7 +265,7 @@ g'_non_tail_if :: Dest -> Instructions -> Instructions -> String -> String -> M 
 g'_non_tail_if dest e1 e2 b bn = do
   b_else <- Id.genId (b ++ "_else")
   b_cont <- Id.genId (b ++ "_cont")
-  emit $ "\t" ++ bn ++ " " ++ b_else
+  emit $ "\t" ++ bn ++ " " ++ b_else ++ "\n"
   stackset_back <- getStackSet
   g dest e1
   stackset1 <- getStackSet
@@ -294,7 +294,7 @@ g'_args x_reg_cl ys zs = do
     emit $ "\tmov " ++ reg r ++ ", " ++ reg y ++ "\n"
   let zfrs = List.foldl' (\zfrs (z, fr) -> (z, fr) : zfrs) [] (zip zs allfregs)
   forM_ (shuffle reg_fsw zfrs) $ \(z, fr) ->
-    emit $ "\tmov " ++ reg fr  ++ ", " ++ reg z ++ "\n"
+    emit $ "\tfmov " ++ reg fr  ++ ", " ++ reg z ++ "\n"
 
 h :: FunDef -> M ()
 h (FunDef { name = Id.Label x, args = _, fargs = _, body = e, ret = t }) = do

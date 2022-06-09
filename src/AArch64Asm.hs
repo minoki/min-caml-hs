@@ -110,7 +110,7 @@ is_reg ('%' : _) = True
 is_reg _         = False
 
 removeAndUniq :: Set.Set Id -> [Id] -> [Id]
-removeAndUniq xs [] = []
+removeAndUniq _ [] = []
 removeAndUniq xs (x : ys) | Set.member x xs = removeAndUniq xs ys
                           | otherwise = x : removeAndUniq (Set.insert x xs) ys
 
@@ -151,7 +151,7 @@ fvExp (CallDir _ ys zs) = ys ++ zs
 
 fvInstructions :: Instructions -> [Id]
 fvInstructions (Ans exp) = fvExp exp
-fvInstructions (Let (x, t) exp e) = fvExp exp ++ removeAndUniq (Set.singleton x) (fvInstructions e)
+fvInstructions (Let (x, _) exp e) = fvExp exp ++ removeAndUniq (Set.singleton x) (fvInstructions e)
 
 fv :: Instructions -> [Id]
 fv e = removeAndUniq Set.empty (fvInstructions e)

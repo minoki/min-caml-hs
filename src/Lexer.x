@@ -22,7 +22,9 @@ tokens :-
   false { simpleToken (Bool False) }
   not { simpleToken Not }
   $digit+ { token (\(_, _, _, s) len -> Int (read (take len s))) }
-  $digit+ (\. $digit*)? ([eE] [\+\-]? $digit+)? { token (\(_, _, _, s) len -> Float (read (take len s))) }
+  $digit+ \. ([eE] [\+\-]? $digit+)? { token (\(_, _, _, s) len -> Float (read (filter (/= '.') $ take len s))) }
+  $digit+ [eE] [\+\-]? $digit+ { token (\(_, _, _, s) len -> Float (read (take len s))) }
+  $digit+ \. $digit+ ([eE] [\+\-]? $digit+)? { token (\(_, _, _, s) len -> Float (read (take len s))) }
   \- { simpleToken Minus }
   \+ { simpleToken Plus }
   \-\. { simpleToken MinusDot }
@@ -44,6 +46,7 @@ tokens :-
   \, { simpleToken Comma }
   _ { \_input _len -> Ident <$> genTmp }
   Array\.create { simpleToken ArrayCreate }
+  Array\.make { simpleToken ArrayCreate }
   \. { simpleToken Dot }
   \<\- { simpleToken LessMinus }
   \; { simpleToken Semicolon }
