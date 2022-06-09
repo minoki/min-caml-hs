@@ -140,6 +140,7 @@ tuple_exp_right_rest : rel_exp_right { [$1] }
 
 put_exp : tuple_exp { $1 }
         | put_(put_exp) { $1 }
+        | put_(if_(if_exp)) { $1 }
 
 put_exp_right : tuple_exp_right { $1 }
               | put_(put_exp_right) { $1 }
@@ -187,7 +188,7 @@ pat : pat ',' ident { $1 ++ [addTyp $3] }
 
 {
 parseError :: [L.Token] -> StateT Id.Counter (Either String) a
-parseError _ = throwError "parse error"
+parseError tokens = throwError $ "parse error: " ++ show (take 5 tokens)
 
 addTyp :: a -> (a, Type.TypeF Identity)
 addTyp x = (x, Type.Var (Identity Nothing))
