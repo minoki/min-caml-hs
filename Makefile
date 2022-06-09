@@ -28,4 +28,5 @@ original/test/%.s: bin/min-caml original/test/%.ml
 original/test/%: original/test/%.s libmincaml-aarch64.S stub.c
 	$(CC) $(CFLAGS) -o $@ $^ -lm
 
+.PRECIOUS: original/test/%.s
 .PHONY: all
