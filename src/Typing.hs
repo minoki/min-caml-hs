@@ -4,6 +4,7 @@ import           Control.Monad.Except
 import           Control.Monad.ST
 import           Control.Monad.State.Strict
 import           Control.Monad.Trans.Except
+import           Data.Functor.Const
 import           Data.Functor.Identity
 import qualified Data.List as List
 import qualified Data.Map.Strict as Map
@@ -54,14 +55,23 @@ unify loc t1@(Type.Tuple t1s) t2@(Type.Tuple t2s) = do
     throwError $ "unify: " ++ show t1f ++ ", " ++ show t2f ++ " (" ++ loc ++ ")"
   zipWithM_ (unify loc) t1s t2s
 unify loc (Type.Array t1) (Type.Array t2) = unify loc t1 t2
-unify _ (Type.Var r1) (Type.Var r2) | r1 == r2 = pure ()
+unify loc t1@(Type.Var r1) t2@(Type.Var r2)
+  | r1 == r2 = pure ()
+  | otherwise = do
+      c1 <- lift $ lift $ readSTRef r1
+      c2 <- lift $ lift $ readSTRef r2
+      case (c1, c2) of
+        (Just t1', Just t2') -> unify loc t1' t2'
+        (Just t1', Nothing) -> unify loc t1' t2
+        (Nothing, Just t2') -> unify loc t1 t2'
+        (Nothing, Nothing) -> lift $ lift $ writeSTRef r1 (Just t2)
 unify loc (Type.Var r1) t2 = do
   c1 <- lift $ lift $ readSTRef r1
   case c1 of
     Just t1' -> unify loc t1' t2
     Nothing -> do o <- lift $ lift $ occur r1 t2
                   if o then
-                    do t2f <- lift $ lift $ freezeType t2
+                    do t2f <- lift $ lift $ printableType t2
                        throwError $ "occur check: " ++ show t2f ++ " (" ++ loc ++ ")"
                   else
                     lift $ lift $ writeSTRef r1 (Just t2)
@@ -71,7 +81,7 @@ unify loc t1 (Type.Var r2) = do
     Just t2' -> unify loc t1 t2'
     Nothing -> do o <- lift $ lift $ occur r2 t1
                   if o then
-                    do t1f <- lift $ lift $ freezeType t1
+                    do t1f <- lift $ lift $ printableType t1
                        throwError $ "occur check: " ++ show t1f ++ " (" ++ loc ++ ")"
                   else
                     lift $ lift $ writeSTRef r2 (Just t1)
@@ -200,6 +210,13 @@ freezeType = Type.mapTypeM f
 
 freezeTypesInExp :: S.ExpF (STRef s) -> ST s S.Exp
 freezeTypesInExp = S.mapExpM freezeType
+
+printableType :: Type.TypeF (STRef s) -> ST s (Type.TypeF (Const String))
+printableType = Type.mapTypeM f
+  where f r = do m <- readSTRef r
+                 case m of
+                   Nothing -> pure $ Type.Var (Const "?")
+                   Just t -> printableType t
 
 f :: S.ExpF Identity -> Either String (S.Exp, Map.Map Id.Id Type.Type)
 f e = runST $ do
