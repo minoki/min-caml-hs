@@ -227,7 +227,7 @@ g' (NonTail a) (CallCls x ys zs) = do
   emit $ "\tstr " ++ reg reg_ra ++ ", [" ++ reg reg_sp ++ ", #" ++ show (ss - 8) ++ "]\n"
   emit $ "\tldr " ++ reg reg_sw ++ ", [" ++ reg reg_cl ++ "]\n"
   emit $ "\tadd " ++ reg reg_sp ++ ", " ++ reg reg_sp ++ ", #" ++ show ss ++ "\n"
-  emit $ "\tbr " ++ reg reg_sw ++ "\n"
+  emit $ "\tblr " ++ reg reg_sw ++ "\n"
   emit $ "\tsub " ++ reg reg_sp ++ ", " ++ reg reg_sp ++ ", #" ++ show ss ++ "\n"
   emit $ "\tldr " ++ reg reg_ra ++ ", [" ++ reg reg_sp ++ ", #" ++ show (ss - 8) ++ "]\n"
   if a `elem` allregs && a /= head allregs then
