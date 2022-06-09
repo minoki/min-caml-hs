@@ -4,6 +4,7 @@ import           Control.Monad.State.Strict
 import           Data.Char (chr)
 import qualified Id
 import           MyPrelude hiding (getChar)
+import           Syntax (Span(..), nullSpan)
 import qualified Type
 }
 
@@ -21,10 +22,10 @@ tokens :-
   true { simpleToken (Bool True) }
   false { simpleToken (Bool False) }
   not { simpleToken Not }
-  $digit+ { token (\(_, _, _, s) len -> Int (read (take len s))) }
-  $digit+ \. ([eE] [\+\-]? $digit+)? { token (\(_, _, _, s) len -> Float (read (filter (/= '.') $ take len s))) }
-  $digit+ [eE] [\+\-]? $digit+ { token (\(_, _, _, s) len -> Float (read (take len s))) }
-  $digit+ \. $digit+ ([eE] [\+\-]? $digit+)? { token (\(_, _, _, s) len -> Float (read (take len s))) }
+  $digit+ { token (\(posn, _, _, s) len -> mkToken posn len (Int (read (take len s)))) }
+  $digit+ \. ([eE] [\+\-]? $digit+)? { token (\(posn, _, _, s) len -> mkToken posn len (Float (read (filter (/= '.') $ take len s)))) }
+  $digit+ [eE] [\+\-]? $digit+ { token (\(posn, _, _, s) len -> mkToken posn len (Float (read (take len s)))) }
+  $digit+ \. $digit+ ([eE] [\+\-]? $digit+)? { token (\(posn, _, _, s) len -> mkToken posn len (Float (read (take len s)))) }
   \- { simpleToken Minus }
   \+ { simpleToken Plus }
   \-\. { simpleToken MinusDot }
@@ -44,13 +45,13 @@ tokens :-
   in { simpleToken In }
   rec { simpleToken Rec }
   \, { simpleToken Comma }
-  _ { \_input _len -> Ident <$> genTmp }
+  _ { \(posn, _, _, _) len -> mkToken posn len . Ident <$> genTmp }
   Array\.create { simpleToken ArrayCreate }
   Array\.make { simpleToken ArrayCreate }
   \. { simpleToken Dot }
   \<\- { simpleToken LessMinus }
   \; { simpleToken Semicolon }
-  $lower [$lower $upper $digit \_]* { token (\(_, _, _, s) len -> Ident (take len s)) }
+  $lower [$lower $upper $digit \_]* { token (\(posn, _, _, s) len -> mkToken posn len (Ident (take len s))) }
 
 {
 type AlexUserState = Id.Counter
@@ -58,8 +59,11 @@ type AlexUserState = Id.Counter
 alexInitUserState :: AlexUserState
 alexInitUserState = Id.initialCounter
 
-simpleToken :: Token -> AlexInput -> Int -> Alex Token
-simpleToken tok = \_input _len -> return tok
+mkToken :: AlexPosn -> Int -> Token -> (Span, Token)
+mkToken (AlexPn _absOffset line column) len tok = (Span line column len, tok)
+
+simpleToken :: Token -> AlexInput -> Int -> Alex (Span, Token)
+simpleToken tok = \(posn, _prev, _rest, _s) len -> return $ mkToken posn len tok
 
 genTmp :: Alex Id.Id
 genTmp = do state <- alexGetUserState
@@ -72,7 +76,7 @@ getChar input = case alexGetByte input of
                   Just (c, input') -> Just (chr (fromIntegral c), input')
                   Nothing -> Nothing
 
-comment :: AlexInput -> Int -> Alex Token
+comment :: AlexInput -> Int -> Alex (Span, Token)
 comment _ _ = do
   input <- alexGetInput
   go (1 :: Int) input
@@ -127,18 +131,18 @@ data Token = Bool Bool
            | EOF
            deriving Show
 
-alexEOF :: Alex Token
-alexEOF = return EOF
+alexEOF :: Alex (Span, Token)
+alexEOF = return (nullSpan, EOF)
 
-scanAll :: Alex [Token]
+scanAll :: Alex [(Span, Token)]
 scanAll = do
   let loop revTokens = do tok <- alexMonadScan
                           case tok of
-                            EOF -> return (reverse revTokens)
+                            (_, EOF) -> return (reverse revTokens)
                             x -> loop (x : revTokens)
   loop []
 
-scanAllAndState :: Alex ([Token], AlexUserState)
+scanAllAndState :: Alex ([(Span, Token)], AlexUserState)
 scanAllAndState = do tokens <- scanAll
                      state <- alexGetUserState
                      return (tokens, state)
