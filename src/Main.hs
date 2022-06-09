@@ -1,10 +1,14 @@
 module Main where
 import qualified Alpha
 import qualified Closure
+import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.Reader
 import           Control.Monad.State.Strict
+import qualified Data.ByteString as BS
 import qualified Emit
+import           GHC.Foreign (peekCStringLen)
+import           GHC.IO.Encoding (mkTextEncoding, utf8)
 import qualified KNormal
 import qualified Lexer
 import           MyPrelude
@@ -32,7 +36,11 @@ main = do
   options <- OA.execParser $ OA.info (options OA.<**> OA.helper) (OA.fullDesc <> OA.header "Min-Caml Compiler for AArch64")
   let inputFilename = filename options ++ ".ml"
       outputFilename = filename options ++ ".s"
-  s <- readFile inputFilename
+  bs <- BS.readFile inputFilename
+  s <- BS.useAsCStringLen bs $ \cs ->
+    peekCStringLen utf8 cs <|> do hPutStrLn stderr "Input file is not UTF-8 encoded; trying EUC-JP..."
+                                  euc_jp <- mkTextEncoding "euc-jp"
+                                  peekCStringLen euc_jp cs
   case Lexer.runAlex s Lexer.scanAllAndState of
     Left msg -> hPutStrLn stderr ("Lexical error: " ++ msg)
     Right (tokens, state) ->
