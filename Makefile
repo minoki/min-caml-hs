@@ -28,5 +28,14 @@ original/test/%.s: bin/min-caml original/test/%.ml
 original/test/%: original/test/%.s libmincaml-aarch64.S stub.c
 	$(CC) $(CFLAGS) -o $@ $^ -lm
 
+original/min-rt/min-rt.s: bin/min-caml original/min-rt/min-rt.ml
+	bin/min-caml original/min-rt/min-rt
+
+original/min-rt/min-rt.min-caml: original/min-rt/min-rt.s min-rt-globals.s libmincaml-aarch64.S stub.c
+	$(CC) $(CFLAGS) -o $@ $^ -lm
+
+original/min-rt/contest.ppm: original/min-rt/min-rt.min-caml original/min-rt/contest.sld
+	original/min-rt/min-rt.min-caml < original/min-rt/contest.sld > $@
+
 .PRECIOUS: original/test/%.s
 .PHONY: all

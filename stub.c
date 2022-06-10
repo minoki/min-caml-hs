@@ -11,6 +11,18 @@ int min_caml_print_int_impl(int64_t x) {
     return printf("%" PRId64, x);
 }
 
+int64_t min_caml_read_int_impl(void) {
+    int64_t x;
+    scanf("%" SCNd64, &x);
+    return x;
+}
+
+double min_caml_read_float_impl(void) {
+    double x;
+    scanf("%lf", &x);
+    return x;
+}
+
 int main(int argc, char *argv[]) {
     char *hp, *sp;
 
