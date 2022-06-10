@@ -1,6 +1,8 @@
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <inttypes.h>
+#include <string.h>
+#include <time.h>
 
 extern void min_caml_start(char *, char *);
 
@@ -33,7 +35,14 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     fprintf(stderr, "sp = %p, hp = %p\n", sp, hp);
+
+    clock_t start_time = clock();
     min_caml_start(sp, hp);
+    clock_t end_time = clock();
+
+    if (argc > 1 && strcmp(argv[1], "--time") == 0) {
+        fprintf(stderr, "elapsed: %g[s]\n", (double)(end_time - start_time) / (double)CLOCKS_PER_SEC);
+    }
 
     return 0;
 }
