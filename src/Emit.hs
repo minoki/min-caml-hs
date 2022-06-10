@@ -14,6 +14,7 @@ import           Lens.Micro (lens)
 import           MyPrelude
 import           Numeric
 import           System.IO
+import           System.Info (os)
 import qualified Type
 
 -- 状態：
@@ -112,7 +113,10 @@ g' (NonTail x) (Set i)
                    emit ("\tmovk " ++ reg x ++ ", #" ++ show ((i `shiftR` 16) .&. 0xffff) ++ ", lsl #16\n")
                    emit ("\tmovk " ++ reg x ++ ", #" ++ show ((i `shiftR` 32) .&. 0xffff) ++ ", lsl #32\n")
                    emit ("\tmovk " ++ reg x ++ ", #" ++ show ((i `shiftR` 48) .&. 0xffff) ++ ", lsl #48\n")
-g' (NonTail x) (SetL (Id.Label y)) = emit ("\tadr " ++ reg x ++ ", " ++ y ++ "\n")
+g' (NonTail x) (SetL (Id.Label y)) | os == "darwin" = do emit ("\tadrp " ++ reg x ++ ", " ++ y ++ "@PAGE\n")
+                                                         emit ("\tadd " ++ reg x ++ ", " ++ reg x ++ ", " ++ y ++ "@PAGEOFF\n")
+                                   | otherwise = do emit ("\tadrp " ++ reg x ++ ", " ++ y ++ "\n")
+                                                    emit ("\tadd " ++ reg x ++ ", " ++ reg x ++ ", :lo12:" ++ y ++ "\n")
 g' (NonTail x) (Mov y) | x == y = pure ()
                        | otherwise = emit ("\tmov " ++ reg x ++ ", " ++ reg y ++ "\n")
 g' (NonTail x) (Neg y) = emit ("\tneg " ++ reg x ++ ", " ++ reg y ++ "\n")
