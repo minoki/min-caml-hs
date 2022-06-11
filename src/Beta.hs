@@ -1,11 +1,11 @@
 module Beta where
-import           Data.Functor.Identity
 import qualified Data.Map.Strict as Map
 import           Id (Id)
 import           KNormal (Exp (..), FunDef (..))
+import           Logging
 import           MyPrelude
 
-type M = Identity
+type M = IO
 
 find :: Id -> Map.Map Id Id -> Id
 find x env = Map.findWithDefault x x env
@@ -27,7 +27,8 @@ g env (IfLE x y e1 e2) = IfLE (find x env) (find y env) <$> g env e1 <*> g env e
 g env (Let (x, t) e1 e2) -- letのβ簡約
   = do e1' <- g env e1
        case e1' of
-         Var y -> -- message: beta-reducing x = y
+         Var y -> do
+           putLogLn $ "beta-reducing " ++ x ++ " = " ++ y
            g (Map.insert x y env) e2
          _ -> Let (x, t) e1' <$> g env e2
 g env (LetRec (FunDef { name = xt, args = yts, body = e1 }) e2)
@@ -42,5 +43,5 @@ g env (App g xs) = pure $ App (find g env) (map (\x -> find x env) xs)
 g _ e@(ExtArray _) = pure e
 g env (ExtFunApp x ys) = pure $ ExtFunApp x (map (\y -> find y env) ys)
 
-f :: Exp -> Identity Exp
+f :: Exp -> IO Exp
 f = g Map.empty

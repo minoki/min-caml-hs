@@ -7,10 +7,11 @@ import qualified Data.Map.Strict as Map
 import           Id (Id)
 import qualified Id
 import           KNormal (Exp (..), FunDef (..))
+import           Logging
 import           MyPrelude
 import qualified Type
 
-type M = ReaderT Int (State Id.Counter) -- threshold
+type M = ReaderT Int (StateT Id.Counter IO) -- threshold
 
 size :: Exp -> Int
 size (IfEq _ _ e1 e2)                   = 1 + size e1 + size e2
@@ -30,9 +31,9 @@ g env (LetRec (FunDef { name = (x, t), args = yts, body = e1 }) e2)
        e1' <- g env' e1
        LetRec (FunDef { name = (x, t), args = yts, body = e1' }) <$> g env' e2
 g env (App x ys) | Just (zs, e) <- Map.lookup x env = do
-                     -- message: inlining x
+                     putLogLn $ "inlining " ++ x
                      let env' = List.foldl' (\env' ((z, _), y) -> Map.insert z y env') Map.empty (zip zs ys)
-                     lift $ Alpha.g env' e
+                     lift . StateT $ \s -> pure $ runState (Alpha.g env' e) s
 g env (LetTuple xts y e) = LetTuple xts y <$> g env e
 g _ e = pure e
 

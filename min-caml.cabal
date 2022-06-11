@@ -17,6 +17,7 @@ executable min-caml
 
     -- Modules included in this executable, other than Main.
     other-modules:    MyPrelude
+                    , Logging
                     , Type
                     , Id
                     , Syntax

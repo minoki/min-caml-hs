@@ -12,6 +12,7 @@ import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.Reader
 import           Control.Monad.State.Strict
+import           Control.Monad.Trans.Except
 import qualified Data.ByteString as BS
 import           Data.Functor.Identity
 import qualified Elim
@@ -45,9 +46,9 @@ iter threshold n e = do
   if n == 0 then
     pure e
     else
-    do let e' = Assoc.f $ runIdentity (Beta.f e)
-       e'' <- StateT $ pure . runState (runReaderT (Inline.f e') threshold)
-       let e''' = runIdentity (Elim.f (ConstFold.f e''))
+    do e' <- lift $ Assoc.f <$> Beta.f e
+       e'' <- runReaderT (Inline.f e') threshold
+       e''' <- lift $ Elim.f (ConstFold.f e'')
        if e == e''' then
          pure e
          else
@@ -75,7 +76,8 @@ main = do
             putStrLn "=== Parse ==="
             print exp
             putStrLn "============="
-          case Typing.f exp of
+          typingResult <- Typing.f exp
+          case typingResult of
             Left msg -> do hPutStrLn stderr msg
                            exitFailure
             Right (exp', extenv) -> do
@@ -98,7 +100,8 @@ main = do
                         print exp'''
                         putStrLn "============="
                       (exp'''', state'''') <- runStateT (iter (inline options) (iterLimit options) exp''') state'''
-                      case Closure.f exp'''' of
+                      closureResult <- Closure.f exp''''
+                      case closureResult of
                         prog@(Closure.Prog _ _) -> do
                           when (printIntermediates options) $ do
                             putStrLn "=== Closure ==="
@@ -117,7 +120,8 @@ main = do
                                 putStrLn "=== Simm ==="
                                 print prog'
                                 putStrLn "============"
-                              case runStateT (AArch64.RegAlloc.f prog'') state''''' of
+                              regAllocResult <- runExceptT (runStateT (AArch64.RegAlloc.f prog'') state''''')
+                              case regAllocResult of
                                 Left msg -> do hPutStrLn stderr msg
                                                exitFailure
                                 Right (prog''', state'''''') -> do

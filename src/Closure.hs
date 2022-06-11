@@ -6,6 +6,7 @@ import qualified Data.Set as Set
 import           Id (Id)
 import qualified Id
 import qualified KNormal
+import           Logging
 import           MyPrelude
 import qualified Type
 
@@ -75,7 +76,7 @@ fv (Get x y) = Set.fromList [x, y]
 fv (Put x y z) = Set.fromList [x, y, z]
 fv (ExtArray _) = Set.empty
 
-type M = State [FunDef] -- toplevel
+type M = StateT [FunDef] IO -- toplevel
 
 g :: Map.Map Id Type.Type -> Set.Set Id -> KNormal.Exp -> M Exp
 g _ _ KNormal.Unit = pure Unit
@@ -106,10 +107,10 @@ g env known (KNormal.LetRec (KNormal.FunDef { KNormal.name = (x, t), KNormal.arg
          let zs = Set.difference (fv e1') (Set.fromList (map fst yts))
          if Set.null zs then
            pure (known', e1')
-         else
+         else do
            -- 駄目だったら状態を戻して、クロージャ変換をやり直す
-           -- free variable(s) %s found in function %s.
-           -- function %s cannot be directly applied in fact.
+           putLogLn $ "free variable(s) " ++ List.concat (List.intersperse " " (Set.toList zs)) ++ " found in function " ++ x
+           putLogLn $ "function " ++ x ++ " cannot be directly applied in fact"
            do put toplevel_backup
               e1'' <- g (List.foldl' (\m (y, t) -> Map.insert y t m) env' yts) known e1
               pure (known, e1'')
@@ -119,9 +120,11 @@ g env known (KNormal.LetRec (KNormal.FunDef { KNormal.name = (x, t), KNormal.arg
        e2' <- g env' known' e2
        if Set.member x (fv e2') then -- xが変数としてe2'に出現するか
          pure $ MakeCls (x, t) (Closure { entry = Id.Label x, actualFv = zs }) e2' -- 出現していたら削除しない
-       else
+       else do
+         putLogLn $ "eliminating closure(s) " ++ x
          pure e2' -- 出現しなければMakeClsを削除
-g _ known (KNormal.App x ys) | Set.member x known = pure $ AppDir (Id.Label x) ys
+g _ known (KNormal.App x ys) | Set.member x known = do putLogLn $ "directly applying " ++ x
+                                                       pure $ AppDir (Id.Label x) ys
                              | otherwise = pure $ AppCls x ys
 g _ _ (KNormal.Tuple xs) = pure $ Tuple xs
 g env known (KNormal.LetTuple xts y e) = LetTuple xts y <$> g (List.foldl' (\m (x, t) -> Map.insert x t m) env xts) known e
@@ -130,6 +133,6 @@ g _ _ (KNormal.Put x y z) = pure $ Put x y z
 g _ _ (KNormal.ExtArray x) = pure $ ExtArray (Id.Label x)
 g _ _ (KNormal.ExtFunApp x ys) = pure $ AppDir (Id.Label ("min_caml_" ++ x)) ys
 
-f :: KNormal.Exp -> Prog
-f e = let (e', toplevel) = runState (g Map.empty Set.empty e) []
-      in Prog (reverse toplevel) e'
+f :: KNormal.Exp -> IO Prog
+f e = do (e', toplevel) <- runStateT (g Map.empty Set.empty e) []
+         pure $ Prog (reverse toplevel) e'

@@ -4,16 +4,18 @@ import           AArch64.Asm
 import           Control.Exception (assert)
 import           Control.Monad.Except
 import           Control.Monad.State.Strict
+import           Control.Monad.Trans.Except
 import           Data.Foldable (foldlM)
 import qualified Data.List as List
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import           Id (Id)
 import qualified Id
+import           Logging
 import           MyPrelude
 import qualified Type
 
-type M = StateT Id.Counter (Either String)
+type M = StateT Id.Counter (ExceptT String IO)
 
 -- for register coalescing
 -- [XXX] Callがあったら、そこから先は無意味というか逆効果なので追わない。
@@ -57,16 +59,16 @@ target_args _ [] _ = error "target_args"
 -- allocにおいてspillingがあったかどうかを表すデータ型
 data AllocResult = Alloc Id -- allocated register
                  | Spill Id -- spilled variable
-alloc :: (Id, Type.Type) -> Instructions -> Map.Map Id Id -> Id -> Type.Type -> AllocResult
+alloc :: (Id, Type.Type) -> Instructions -> Map.Map Id Id -> Id -> Type.Type -> IO AllocResult
 alloc dest cont regenv x t = assert (not (Map.member x regenv))
   $ let all = case t of
                 Type.Unit  -> ["%x0"] -- dummy
                 Type.Float -> allfregs
                 _          -> allregs
     in if all == ["%x0"] then
-         Alloc "%x0"
+         pure $ Alloc "%x0"
        else if is_reg x then
-              Alloc x
+              pure $ Alloc x
             else
               let free = fv cont
                   (_, prefer) = target x dest cont
@@ -77,15 +79,16 @@ alloc dest cont regenv x t = assert (not (Map.member x regenv))
                                                      Just y' -> Set.insert y' live
                                                      Nothing -> live) Set.empty free
               in case List.find (\r -> not (Set.member r live)) (prefer ++ all) of
-                   Just r -> Alloc r
-                   Nothing -> -- message: register allocation failed for <x>
+                   Just r -> pure $ Alloc r
+                   Nothing -> do
+                     putLogLn $ "register allocation failed for " ++ x
                      let y = List.find (\y -> not (is_reg y) && case Map.lookup y regenv of
                                                                   Just y' -> y' `elem` all
                                                                   Nothing -> False) (List.reverse free)
-                     in -- message: "spilling <y> from <regenv Map.! y>
-                        case y of
-                          Just y' -> Spill y'
-                          Nothing -> error "Spill"
+                     case y of
+                       Just y' -> do putLogLn $ "spilling " ++ y' ++ " from " ++ (regenv Map.! y')
+                                     pure $ Spill y'
+                       Nothing -> error "Spill"
 
 add :: Id -> Id -> Map.Map Id Id -> Map.Map Id Id
 add x r regenv | is_reg x = assert (x == r) regenv
@@ -108,7 +111,8 @@ g dest cont regenv (Let xt@(x, t) exp e)
   = do let !_ = assert (not (Map.member x regenv)) ()
            cont' = concat e dest cont
        (e1', regenv1) <- g'_and_restore xt cont' regenv exp
-       case alloc dest cont' regenv1 x t of
+       allocResult <- lift $ lift $ alloc dest cont' regenv1 x t
+       case allocResult of
          Spill y -> do let r = regenv1 Map.! y
                        (e2', regenv2) <- g dest cont (add x r (Map.delete y regenv1)) e
                        let save = case Map.lookup y regenv of
@@ -232,8 +236,9 @@ h (FunDef { name = Id.Label x, args = ys, fargs = zs, body = e, ret = t })
        pure $ FunDef { name = Id.Label x, args = arg_regs, fargs = farg_regs, body = e', ret = t }
 
 -- プログラム全体のレジスタ割り当て
-f :: Prog -> StateT Id.Counter (Either String) Prog
-f (Prog dat fundefs e) = do fundefs' <- mapM h fundefs
+f :: Prog -> StateT Id.Counter (ExceptT String IO) Prog
+f (Prog dat fundefs e) = do putLogLn "register allocation: may take some time"
+                            fundefs' <- mapM h fundefs
                             v <- Id.genTmp Type.Unit
                             (e', _) <- g (v, Type.Unit) (Ans Nop) Map.empty e
                             pure $ Prog dat fundefs' e'

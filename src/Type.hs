@@ -1,8 +1,6 @@
 module Type where
-import           Control.Monad.ST
 import           Data.Functor.Classes
 import           Data.Functor.Const
-import           Data.STRef
 import           Data.Void
 import           MyPrelude
 
@@ -39,10 +37,6 @@ instance Show1 f => Show (TypeF f) where
                        Array element -> showParen (prec > 10) $ showString "Array " . showsPrec 11 element
                        Var f -> showParen (prec > 10) $ showString "Var " . liftShowsPrec showsPrec showList 11 f
 
-genTyp :: ST s (TypeF (STRef s))
-genTyp = do r <- newSTRef Nothing
-            return (Var r)
-
 mapTypeM :: Applicative m => (f (Maybe (TypeF f)) -> m (TypeF g)) -> TypeF f -> m (TypeF g)
 mapTypeM _ Unit       = pure Unit
 mapTypeM _ Bool       = pure Bool
@@ -52,3 +46,5 @@ mapTypeM f (Fun xs y) = Fun <$> traverse (mapTypeM f) xs <*> mapTypeM f y
 mapTypeM f (Tuple xs) = Tuple <$> traverse (mapTypeM f) xs
 mapTypeM f (Array x)  = Array <$> mapTypeM f x
 mapTypeM f (Var x)    = f x
+
+-- genTyp is defined in Typing
