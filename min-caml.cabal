@@ -26,6 +26,7 @@ executable min-caml
                     , KNormal
                     , Alpha
                     , Beta
+                    , Assoc
                     , Closure
                     , AArch64.Asm
                     , AArch64.Virtual

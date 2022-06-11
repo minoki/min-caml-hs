@@ -24,7 +24,7 @@ Features:
 * [x] K-normalization
 * [x] Alpha conversion
 * [x] Beta reduction
-* [ ] Reduction of nested lets
+* [x] Flatten lets
 * [ ] Inlining
 * [ ] Constant folding
 * [ ] Dead code elimination

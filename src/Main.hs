@@ -3,6 +3,7 @@ import qualified AArch64.Emit
 import qualified AArch64.RegAlloc
 import qualified AArch64.Virtual
 import qualified Alpha
+import qualified Assoc
 import qualified Beta
 import qualified Closure
 import           Control.Applicative
@@ -38,7 +39,7 @@ iter n e = do hPutStrLn stderr $ "iteration " ++ show n
               if n == 0 then
                 pure e
               else
-                do let e' = runIdentity (Beta.f e)
+                do let e' = Assoc.f $ runIdentity (Beta.f e)
                    if e == e' then
                      pure e
                    else
