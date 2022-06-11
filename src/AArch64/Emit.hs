@@ -1,6 +1,6 @@
 {-# LANGUAGE NumericUnderscores #-}
-module Emit where
-import           AArch64Asm
+module AArch64.Emit where
+import           AArch64.Asm
 import           Control.Monad
 import           Control.Monad.Reader
 import           Control.Monad.State.Strict
@@ -13,8 +13,8 @@ import qualified Id
 import           Lens.Micro (lens)
 import           MyPrelude
 import           Numeric
-import           System.IO
 import           System.Info (os)
+import           System.IO
 import qualified Type
 
 -- 状態：

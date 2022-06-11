@@ -1,5 +1,5 @@
-module Virtual where
-import           AArch64Asm
+module AArch64.Virtual where
+import           AArch64.Asm
 import qualified Closure
 import           Control.Monad.Except
 import           Control.Monad.State.Strict
@@ -79,7 +79,7 @@ g env (Closure.IfLE x y e1 e2) = Ans <$> case env Map.! x of
                                            _ -> throwError "equality supported only for bool, int, and float"
 g env (Closure.Let (x, t1) e1 e2) = do e1' <- g env e1
                                        e2' <- g (Map.insert x t1 env) e2
-                                       pure $ AArch64Asm.concat e1' (x, t1) e2'
+                                       pure $ AArch64.Asm.concat e1' (x, t1) e2'
 g env (Closure.Var x) = case env Map.! x of
                           Type.Unit  -> pure $ Ans Nop
                           Type.Float -> pure $ Ans $ FMovD x

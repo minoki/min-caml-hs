@@ -1,6 +1,6 @@
 {-# LANGUAGE BangPatterns #-}
-module RegAlloc where
-import           AArch64Asm
+module AArch64.RegAlloc where
+import           AArch64.Asm
 import           Control.Exception (assert)
 import           Control.Monad.Except
 import           Control.Monad.State.Strict

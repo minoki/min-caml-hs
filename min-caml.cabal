@@ -35,10 +35,10 @@ executable min-caml
                     , KNormal
                     , Alpha
                     , Closure
-                    , AArch64Asm
-                    , Virtual
-                    , RegAlloc
-                    , Emit
+                    , AArch64.Asm
+                    , AArch64.Virtual
+                    , AArch64.RegAlloc
+                    , AArch64.Emit
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions:

@@ -1,4 +1,7 @@
 module Main where
+import qualified AArch64.Emit
+import qualified AArch64.RegAlloc
+import qualified AArch64.Virtual
 import qualified Alpha
 import qualified Closure
 import           Control.Applicative
@@ -6,18 +9,15 @@ import           Control.Monad
 import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import qualified Data.ByteString as BS
-import qualified Emit
 import           GHC.Foreign (peekCStringLen)
 import qualified KNormal
 import qualified Lexer
 import           MyPrelude
 import qualified Options.Applicative as OA
 import qualified Parser
-import qualified RegAlloc
 import           System.Exit
 import           System.IO
 import qualified Typing
-import qualified Virtual
 
 data Options = Options { inline             :: !Int
                        , iter               :: !Int
@@ -81,7 +81,7 @@ main = do
                             putStrLn "=== Closure ==="
                             print prog
                             putStrLn "==============="
-                          case Virtual.f prog state''' of
+                          case AArch64.Virtual.f prog state''' of
                             Left msg -> do hPutStrLn stderr msg
                                            exitFailure
                             Right (prog', state'''') -> do
@@ -89,7 +89,7 @@ main = do
                                 putStrLn "=== Virtual ==="
                                 print prog'
                                 putStrLn "==============="
-                              case runStateT (RegAlloc.f prog') state'''' of
+                              case runStateT (AArch64.RegAlloc.f prog') state'''' of
                                 Left msg -> do hPutStrLn stderr msg
                                                exitFailure
                                 Right (prog'', state''''') -> do
@@ -98,5 +98,5 @@ main = do
                                     print prog''
                                     putStrLn "================"
                                   withFile outputFilename WriteMode $ \out -> do
-                                    ((), _) <- runStateT (Emit.f out prog'') state'''''
+                                    ((), _) <- runStateT (AArch64.Emit.f out prog'') state'''''
                                     pure ()

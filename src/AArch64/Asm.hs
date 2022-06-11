@@ -1,4 +1,4 @@
-module AArch64Asm where
+module AArch64.Asm where
 import           Control.Monad.State.Class
 import qualified Data.Set as Set
 import           Id (Id)
