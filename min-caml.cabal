@@ -1,24 +1,15 @@
 cabal-version:      2.4
 name:               min-caml
 version:            0.1.0.0
-
--- A short (one-line) description of the package.
--- synopsis:
-
--- A longer description of the package.
--- description:
-
--- A URL where users can report bugs.
--- bug-reports:
-
--- The license under which the package is released.
--- license:
+synopsis:           MinCaml implementation in Haskell
+description:        Please see the README on GitHub at <https://github.com/minoki/min-caml-hs#readme>
+bug-reports:        https://github.com/minoki/min-caml-hs/issues
+license:            BSD-3-Clause
+license-file:       LICENSE
 author:             ARATA Mizuki
 maintainer:         minorinoki@gmail.com
-
--- A copyright notice.
--- copyright:
--- category:
+copyright:          2022 ARATA Mizuki
+category:           Compiler
 extra-source-files: CHANGELOG.md
 
 executable min-caml
