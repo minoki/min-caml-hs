@@ -2,6 +2,7 @@
 module RegAlloc where
 import           AArch64Asm
 import           Control.Exception (assert)
+import           Control.Monad.Except
 import           Control.Monad.State.Strict
 import           Data.Foldable (foldlM)
 import qualified Data.List as List
@@ -12,7 +13,7 @@ import qualified Id
 import           MyPrelude
 import qualified Type
 
-type M = State Id.Counter
+type M = StateT Id.Counter (Either String)
 
 -- for register coalescing
 -- [XXX] Callがあったら、そこから先は無意味というか逆効果なので追わない。
@@ -166,8 +167,10 @@ g' dest cont regenv exp@(IfLE x y' e1 e2) = g'_if dest cont regenv exp (\e1' e2'
 g' dest cont regenv exp@(IfGE x y' e1 e2) = g'_if dest cont regenv exp (\e1' e2' -> IfGE <$> find x Type.Int regenv <*> find' y' regenv <*> pure e1' <*> pure e2') e1 e2
 g' dest cont regenv exp@(IfFEq x y e1 e2) = g'_if dest cont regenv exp (\e1' e2' -> IfFEq <$> find x Type.Float regenv <*> find y Type.Float regenv <*> pure e1' <*> pure e2') e1 e2
 g' dest cont regenv exp@(IfFLE x y e1 e2) = g'_if dest cont regenv exp (\e1' e2' -> IfFLE <$> find x Type.Float regenv <*> find y Type.Float regenv <*> pure e1' <*> pure e2') e1 e2
-g' dest cont regenv exp@(CallCls x ys zs) = g'_call dest cont regenv exp (\ys zs -> CallCls <$> find x Type.Int regenv <*> pure ys <*> pure zs) ys zs
-g' dest cont regenv exp@(CallDir l ys zs) = g'_call dest cont regenv exp (\ys zs -> pure $ CallDir l ys zs) ys zs
+g' dest cont regenv exp@(CallCls x ys zs) | length ys > length allregs - 2 || length zs > length allfregs - 1 = throwError $ "cannot allocate registers for arguments to " ++ x
+                                          | otherwise = g'_call dest cont regenv exp (\ys zs -> CallCls <$> find x Type.Int regenv <*> pure ys <*> pure zs) ys zs
+g' dest cont regenv exp@(CallDir l@(Id.Label x) ys zs) | length ys > length allregs - 1 || length zs > length allfregs - 1 = throwError $ "cannot allocate registers for arguments to " ++ x
+                                                       | otherwise= g'_call dest cont regenv exp (\ys zs -> pure $ CallDir l ys zs) ys zs
 g' _ _ _ (Save _ _) = error "unexpected Save"
 
 -- ifのレジスタ割り当て
@@ -229,7 +232,7 @@ h (FunDef { name = Id.Label x, args = ys, fargs = zs, body = e, ret = t })
        pure $ FunDef { name = Id.Label x, args = arg_regs, fargs = farg_regs, body = e', ret = t }
 
 -- プログラム全体のレジスタ割り当て
-f :: Prog -> State Id.Counter Prog
+f :: Prog -> StateT Id.Counter (Either String) Prog
 f (Prog dat fundefs e) = do fundefs' <- mapM h fundefs
                             v <- Id.genTmp Type.Unit
                             (e', _) <- g (v, Type.Unit) (Ans Nop) Map.empty e
