@@ -47,7 +47,6 @@ executable min-caml
                     , mtl ^>=2.3
                     , containers ^>=0.6.5.1
                     , transformers ^>=0.6.0.4
-                    , vector ^>=0.12.3.1
                     , optparse-applicative ^>=0.17.0.0
                     , microlens ^>=0.4.13.0
                     , microlens-mtl ^>=0.2.0.2

@@ -1,11 +1,10 @@
 module AArch64Asm where
+import           Control.Monad.State.Class
 import qualified Data.Set as Set
-import qualified Data.Vector as V
 import           Id (Id)
 import qualified Id
 import           MyPrelude
 import qualified Type
-import Control.Monad.State.Class
 
 data IdOrImm = V Id
              | C Int
@@ -73,12 +72,6 @@ allregs = [ "%x0", "%x1", "%x2", "%x3"
 
 allfregs :: [Id]
 allfregs = ["%d" ++ show (i :: Int) | i <- [0..7] ++ [16..31]]
-
-regs :: V.Vector Id
-regs = V.fromList allregs
-
-fregs :: V.Vector Id
-fregs = V.fromList allfregs
 
 -- closure address
 reg_cl :: Id
