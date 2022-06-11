@@ -1,4 +1,5 @@
 {-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE FlexibleContexts #-}
 module AArch64.RegAlloc where
 import           AArch64.Asm
 import           Control.Exception (assert)
@@ -11,11 +12,12 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import           Id (Id)
 import qualified Id
+import           Lens.Micro.Mtl (assign, use)
 import           Logging
 import           MyPrelude
 import qualified Type
 
-type M = StateT Id.Counter (ExceptT String IO)
+type M m = StateT Id.Counter (ExceptT String m)
 
 -- for register coalescing
 -- [XXX] Callがあったら、そこから先は無意味というか逆効果なので追わない。
@@ -59,7 +61,7 @@ target_args _ [] _ = error "target_args"
 -- allocにおいてspillingがあったかどうかを表すデータ型
 data AllocResult = Alloc Id -- allocated register
                  | Spill Id -- spilled variable
-alloc :: (Id, Type.Type) -> Instructions -> Map.Map Id Id -> Id -> Type.Type -> IO AllocResult
+alloc :: MonadLogger m => (Id, Type.Type) -> Instructions -> Map.Map Id Id -> Id -> Type.Type -> m AllocResult
 alloc dest cont regenv x t = assert (not (Map.member x regenv))
   $ let all = case t of
                 Type.Unit  -> ["%x0"] -- dummy
@@ -105,7 +107,7 @@ find' :: IdOrImm -> Map.Map Id Id -> Either (Id, Type.Type) IdOrImm
 find' (V x) regenv = V <$> find x Type.Int regenv
 find' c _          = Right c
 
-g :: (Id, Type.Type) -> Instructions -> Map.Map Id Id -> Instructions -> M (Instructions, Map.Map Id Id)
+g :: MonadLogger m => (Id, Type.Type) -> Instructions -> Map.Map Id Id -> Instructions -> M m (Instructions, Map.Map Id Id)
 g dest cont regenv (Ans exp) = g'_and_restore dest cont regenv exp
 g dest cont regenv (Let xt@(x, t) exp e)
   = do let !_ = assert (not (Map.member x regenv)) ()
@@ -123,14 +125,14 @@ g dest cont regenv (Let xt@(x, t) exp e)
                        pure (concat e1' (r, t) e2', regenv2)
 
 -- 使用される変数をスタックからレジスタへRestore
-g'_and_restore :: (Id, Type.Type) -> Instructions -> Map.Map Id Id -> Exp -> M (Instructions, Map.Map Id Id)
+g'_and_restore :: MonadLogger m => (Id, Type.Type) -> Instructions -> Map.Map Id Id -> Exp -> M m (Instructions, Map.Map Id Id)
 g'_and_restore dest cont regenv exp = do r <- g' dest cont regenv exp
                                          case r of
                                            Right result -> pure result
                                            Left (x, t) -> g dest cont regenv (Let (x, t) (Restore x) (Ans exp))
 
 -- 各命令のレジスタ割り当て
-g' :: (Id, Type.Type) -> Instructions -> Map.Map Id Id -> Exp -> M (Either (Id, Type.Type) (Instructions, Map.Map Id Id))
+g' :: MonadLogger m => (Id, Type.Type) -> Instructions -> Map.Map Id Id -> Exp -> M m (Either (Id, Type.Type) (Instructions, Map.Map Id Id))
 g' _ _ regenv exp@Nop = pure $ Right (Ans exp, regenv)
 g' _ _ regenv exp@(Set _) = pure $ Right (Ans exp, regenv)
 g' _ _ regenv exp@(SetL _) = pure $ Right (Ans exp, regenv)
@@ -178,7 +180,7 @@ g' dest cont regenv exp@(CallDir l@(Id.Label x) ys zs) | length ys > length allr
 g' _ _ _ (Save _ _) = error "unexpected Save"
 
 -- ifのレジスタ割り当て
-g'_if :: (Id, Type.Type) -> Instructions -> Map.Map Id Id -> Exp -> (Instructions -> Instructions -> Either (Id, Type.Type) Exp) -> Instructions -> Instructions -> M (Either (Id, Type.Type) (Instructions, Map.Map Id Id))
+g'_if :: MonadLogger m => (Id, Type.Type) -> Instructions -> Map.Map Id Id -> Exp -> (Instructions -> Instructions -> Either (Id, Type.Type) Exp) -> Instructions -> Instructions -> M m (Either (Id, Type.Type) (Instructions, Map.Map Id Id))
 g'_if dest cont regenv _ constr e1 e2
   = do (e1', regenv1) <- g dest cont regenv e1
        (e2', regenv2) <- g dest cont regenv e2
@@ -203,7 +205,7 @@ g'_if dest cont regenv _ constr e1 e2
                         pure $ Right (e, regenv')
 
 -- 関数呼び出しのレジスタ割り当て
-g'_call :: (Id, Type.Type) -> Instructions -> Map.Map Id Id -> Exp -> ([Id] -> [Id] -> Either (Id, Type.Type) Exp) -> [Id] -> [Id] -> M (Either (Id, Type.Type) (Instructions, Map.Map Id Id))
+g'_call :: MonadLogger m => (Id, Type.Type) -> Instructions -> Map.Map Id Id -> Exp -> ([Id] -> [Id] -> Either (Id, Type.Type) Exp) -> [Id] -> [Id] -> M m (Either (Id, Type.Type) (Instructions, Map.Map Id Id))
 g'_call dest cont regenv _ constr ys zs
   = do let m = do ys' <- mapM (\y -> find y Type.Int regenv) ys
                   zs' <- mapM (\z -> find z Type.Float regenv) zs
@@ -219,7 +221,7 @@ g'_call dest cont regenv _ constr ys zs
                         pure $ Right (e, Map.empty)
 
 -- 関数のレジスタ割り当て
-h :: FunDef -> M FunDef
+h :: MonadLogger m => FunDef -> M m FunDef
 h (FunDef { name = Id.Label x, args = ys, fargs = zs, body = e, ret = t })
   = do let regenv = Map.singleton x reg_cl
            (arg_regs, regenv') = List.foldl' (\(arg_regs, regenv) (y, r) ->
@@ -236,9 +238,14 @@ h (FunDef { name = Id.Label x, args = ys, fargs = zs, body = e, ret = t })
        pure $ FunDef { name = Id.Label x, args = arg_regs, fargs = farg_regs, body = e', ret = t }
 
 -- プログラム全体のレジスタ割り当て
-f :: Prog -> StateT Id.Counter (ExceptT String IO) Prog
-f (Prog dat fundefs e) = do putLogLn "register allocation: may take some time"
-                            fundefs' <- mapM h fundefs
-                            v <- Id.genTmp Type.Unit
-                            (e', _) <- g (v, Type.Unit) (Ans Nop) Map.empty e
-                            pure $ Prog dat fundefs' e'
+f :: (MonadLogger m, MonadError String m, MonadState s m, Id.HasCounter s) => Prog -> m Prog
+f (Prog dat fundefs e) = do state <- use Id.counter
+                            result <- runExceptT $ flip runStateT state $ do putLogLn "register allocation: may take some time"
+                                                                             fundefs' <- mapM h fundefs
+                                                                             v <- Id.genTmp Type.Unit
+                                                                             (e', _) <- g (v, Type.Unit) (Ans Nop) Map.empty e
+                                                                             pure $ Prog dat fundefs' e'
+                            case result of
+                              Left e  -> throwError e
+                              Right (p, state') -> do assign Id.counter state'
+                                                      pure p

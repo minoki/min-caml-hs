@@ -11,6 +11,7 @@ import           GHC.Float (castDoubleToWord64)
 import           Id (Id)
 import qualified Id
 import           Lens.Micro (lens)
+import           Lens.Micro.Mtl (assign, use)
 import           MyPrelude
 import           Numeric
 import           System.Info (os)
@@ -312,38 +313,43 @@ runM m h = StateT $ \counter -> do
   (result, S counter' _ _) <- runStateT (runReaderT m h) (S counter Set.empty [])
   pure (result, counter')
 
-f :: Handle -> Prog -> StateT Id.Counter IO ()
-f oc (Prog dat fundefs e) = do
-  lift $ do
-    hPutStrLn stderr "generating assembly..."
-    hPutStr oc "\t.text\n"
-    hPutStr oc "\t.align 3\n" -- 8-byte aligned
-    forM_ dat $ \(Id.Label x, d) -> do
-      hPutStr oc $ x ++ ": // " ++ show d ++ "\n"
-      let h = castDoubleToWord64 d
-          hi = h `shiftR` 32
-          lo = h .&. 0xffff_ffff
-      -- assume little endian
-      hPutStr oc $ "\t.long 0x" ++ showHex lo "\n"
-      hPutStr oc $ "\t.long 0x" ++ showHex hi "\n"
-    hPutStr oc "\t.text\n"
-  forM_ fundefs $ \fundef -> runM (h fundef) oc
-  lift $ do
-    -- for Linux:
-    hPutStr oc "\t.global min_caml_start\n"
-    hPutStr oc "min_caml_start:\n"
-    -- for macOS:
-    hPutStr oc "\t.global _min_caml_start\n"
-    hPutStr oc "_min_caml_start:\n"
-    -- Prologue
-    hPutStr oc "\tstp x29, x30, [sp, #-16]!\n"
-    hPutStr oc "\tstp x27, x28, [sp, #-16]!\n"
-    hPutStr oc "\tadd x29, sp, #32\n"
-    hPutStr oc "\tmov x27, x0\n"
-    hPutStr oc "\tmov x28, x1\n"
-  runM (g (NonTail "%x0") e) oc -- destination register?
-  lift $ do
-    -- Epilogue
-    hPutStr oc "\tldp x27, x28, [sp], #16\n"
-    hPutStr oc "\tldp x29, x30, [sp], #16\n"
-    hPutStr oc "\tret\n"
+f :: (MonadIO m, MonadState s m, Id.HasCounter s) => Handle -> Prog -> m ()
+f oc (Prog dat fundefs e) = do state <- use Id.counter
+                               (result, state') <- liftIO $ runStateT doEmit state
+                               assign Id.counter state'
+                               pure result
+  where
+    doEmit = do
+      lift $ do
+        hPutStrLn stderr "generating assembly..."
+        hPutStr oc "\t.text\n"
+        hPutStr oc "\t.align 3\n" -- 8-byte aligned
+        forM_ dat $ \(Id.Label x, d) -> do
+          hPutStr oc $ x ++ ": // " ++ show d ++ "\n"
+          let h = castDoubleToWord64 d
+              hi = h `shiftR` 32
+              lo = h .&. 0xffff_ffff
+          -- assume little endian
+          hPutStr oc $ "\t.long 0x" ++ showHex lo "\n"
+          hPutStr oc $ "\t.long 0x" ++ showHex hi "\n"
+        hPutStr oc "\t.text\n"
+      forM_ fundefs $ \fundef -> runM (h fundef) oc
+      lift $ do
+        -- for Linux:
+        hPutStr oc "\t.global min_caml_start\n"
+        hPutStr oc "min_caml_start:\n"
+        -- for macOS:
+        hPutStr oc "\t.global _min_caml_start\n"
+        hPutStr oc "_min_caml_start:\n"
+        -- Prologue
+        hPutStr oc "\tstp x29, x30, [sp, #-16]!\n"
+        hPutStr oc "\tstp x27, x28, [sp, #-16]!\n"
+        hPutStr oc "\tadd x29, sp, #32\n"
+        hPutStr oc "\tmov x27, x0\n"
+        hPutStr oc "\tmov x28, x1\n"
+      runM (g (NonTail "%x0") e) oc -- destination register?
+      lift $ do
+        -- Epilogue
+        hPutStr oc "\tldp x27, x28, [sp], #16\n"
+        hPutStr oc "\tldp x29, x30, [sp], #16\n"
+        hPutStr oc "\tret\n"

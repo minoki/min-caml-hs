@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 module KNormal where
 import           Control.Monad.Except
 import           Control.Monad.Reader
@@ -7,6 +8,7 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import           Id (Id)
 import qualified Id
+import           Lens.Micro.Mtl (assign, use)
 import           MyPrelude
 import qualified Syntax
 import qualified Type
@@ -179,6 +181,10 @@ g env (Syntax.Put _ e1 e2 e3) = insertLet (g env e1)
                                         $ \y -> insertLet (g env e3)
                                                 $ \z -> pure (Put x y z, Type.Unit)
 
-f :: Syntax.Exp -> M Exp
-f e = do (e', _) <- g Map.empty e
-         pure e'
+f :: (MonadError String m, MonadState s m, Id.HasCounter s) => Syntax.Exp -> Map.Map Id Type.Type -> m Exp
+f e extenv = do state <- use Id.counter
+                case runStateT (runReaderT (g Map.empty e) extenv) state of
+                  Left e -> throwError e
+                  Right ((result, _), state') -> do
+                    assign Id.counter state'
+                    pure result

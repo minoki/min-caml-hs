@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 module AArch64.Virtual where
 import           AArch64.Asm
 import qualified Closure
@@ -10,6 +11,7 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import qualified Id
 import           Lens.Micro (lens)
+import           Lens.Micro.Mtl (assign, use)
 import           MyPrelude
 import qualified Type
 
@@ -153,9 +155,15 @@ h (Closure.FunDef { Closure.name = (Id.Label x, t), Closure.args = yts, Closure.
                 Type.Fun _ t2 -> FunDef { name = Id.Label x, args = int, fargs = float, body = load, ret = t2 }
                 _ -> error "invalid function type"
 
-f :: Closure.Prog -> Id.Counter -> Either String (Prog, Id.Counter)
-f (Closure.Prog fundefs e) state = flip evalStateT (S state []) $ do
-  fundefs' <- mapM h fundefs
-  e' <- g Map.empty e
-  S state' table <- get
-  pure (Prog table fundefs' e', state')
+f :: (MonadError String m, MonadState s m, Id.HasCounter s) => Closure.Prog -> m Prog
+f (Closure.Prog fundefs e) = do
+  state <- use Id.counter
+  let result = flip evalStateT (S state []) $ do
+        fundefs' <- mapM h fundefs
+        e' <- g Map.empty e
+        S state' table <- get
+        pure (Prog table fundefs' e', state')
+  case result of
+    Left e -> throwError e
+    Right (result, state') -> do assign Id.counter state'
+                                 pure result

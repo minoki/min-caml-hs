@@ -58,5 +58,5 @@ h (FunDef { name = l, args = xs, fargs = ys, body = e, ret = t })
   = (\e' -> FunDef { name = l, args = xs, fargs = ys, body = e', ret = t }) <$> g Map.empty e
 
 -- プログラム全体の即値最適化
-f :: Prog -> M Prog
-f (Prog dat fundefs e) = Prog dat <$> mapM h fundefs <*> g Map.empty e
+f :: Monad m => Prog -> m Prog
+f (Prog dat fundefs e) = pure $ runIdentity (Prog dat <$> mapM h fundefs <*> g Map.empty e)

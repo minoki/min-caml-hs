@@ -5,6 +5,7 @@ import qualified Data.Map.Strict as Map
 import           Id (Id)
 import qualified Id
 import           KNormal (Exp (..), FunDef (..))
+import           Lens.Micro.Mtl (assign, use)
 import           MyPrelude
 
 type M = State Id.Counter
@@ -47,5 +48,8 @@ g env (Put x y z) = pure (Put (find x env) (find y env) (find z env))
 g _env (ExtArray x) = pure (ExtArray x)
 g env (ExtFunApp x ys) = pure (ExtFunApp x (map (`find` env) ys))
 
-f :: Exp -> M Exp
-f = g Map.empty
+f :: (MonadState s m, Id.HasCounter s) => Exp -> m Exp
+f exp = do state <- use Id.counter
+           let (result, state') = runState (g Map.empty exp) state
+           assign Id.counter state'
+           pure result

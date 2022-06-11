@@ -1,8 +1,11 @@
 {
+{-# LANGUAGE FlexibleContexts #-}
 module Lexer where
+import           Control.Monad.Except
 import           Control.Monad.State.Strict
 import           Data.Char (chr)
 import qualified Id
+import           Lens.Micro.Mtl (assign, use)
 import           MyPrelude hiding (getChar)
 import           Syntax (Span(..), nullSpan)
 import qualified Type
@@ -67,8 +70,8 @@ simpleToken tok = \(posn, _prev, _rest, _s) len -> return $ mkToken posn len tok
 
 genTmp :: Alex Id.Id
 genTmp = do state <- alexGetUserState
-            let (id, idCounter') = runState (Id.genTmp Type.Unit) state
-            alexSetUserState idCounter'
+            let (id, state') = runState (Id.genTmp Type.Unit) state
+            alexSetUserState state'
             return id
 
 getChar :: AlexInput -> Maybe (Char, AlexInput)
@@ -142,8 +145,15 @@ scanAll = do
                             x -> loop (x : revTokens)
   loop []
 
-scanAllAndState :: Alex ([(Span, Token)], AlexUserState)
+scanAllAndState :: Alex ([(Span, Token)], Id.Counter)
 scanAllAndState = do tokens <- scanAll
                      state <- alexGetUserState
                      return (tokens, state)
+
+runLexer :: (MonadError String m, MonadState s m, Id.HasCounter s) => String -> m [(Span, Token)]
+runLexer s = do initialState <- use Id.counter
+                case Lexer.runAlex s (alexSetUserState initialState >> scanAllAndState) of
+                  Left e -> throwError e
+                  Right (tokens, state) -> do assign Id.counter state
+                                              pure tokens
 }

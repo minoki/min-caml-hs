@@ -5,12 +5,10 @@ import           KNormal (Exp (..), FunDef (..))
 import           Logging
 import           MyPrelude
 
-type M = IO
-
 find :: Id -> Map.Map Id Id -> Id
 find x env = Map.findWithDefault x x env
 
-g :: Map.Map Id Id -> Exp -> M Exp
+g :: MonadLogger m => Map.Map Id Id -> Exp -> m Exp
 g _ e@Unit = pure e
 g _ e@(Int _) = pure e
 g _ e@(Float _) = pure e
@@ -43,5 +41,5 @@ g env (App g xs) = pure $ App (find g env) (map (\x -> find x env) xs)
 g _ e@(ExtArray _) = pure e
 g env (ExtFunApp x ys) = pure $ ExtFunApp x (map (\y -> find y env) ys)
 
-f :: Exp -> IO Exp
+f :: MonadLogger m => Exp -> m Exp
 f = g Map.empty

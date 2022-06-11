@@ -17,9 +17,7 @@ effect (Put _ _ _)      = True
 effect (ExtFunApp _ _)  = True
 effect _                = False
 
-type M = IO
-
-f :: Exp -> M Exp
+f :: MonadLogger m => Exp -> m Exp
 f (IfEq x y e1 e2) = IfEq x y <$> f e1 <*> f e2
 f (IfLE x y e1 e2) = IfLE x y <$> f e1 <*> f e2
 f (Let (x, t) e1 e2) = do

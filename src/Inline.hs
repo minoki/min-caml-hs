@@ -7,11 +7,12 @@ import qualified Data.Map.Strict as Map
 import           Id (Id)
 import qualified Id
 import           KNormal (Exp (..), FunDef (..))
+import           Lens.Micro.Mtl (assign, use)
 import           Logging
 import           MyPrelude
 import qualified Type
 
-type M = ReaderT Int (StateT Id.Counter IO) -- threshold
+type M m = ReaderT Int (StateT Id.Counter m) -- threshold
 
 size :: Exp -> Int
 size (IfEq _ _ e1 e2)                   = 1 + size e1 + size e2
@@ -21,7 +22,7 @@ size (LetRec (FunDef { body = e1 }) e2) = 1 + size e1 + size e2
 size (LetTuple _ _ e)                   = 1 + size e
 size _                                  = 1
 
-g :: Map.Map Id ([(Id, Type.Type)], Exp) -> Exp -> M Exp
+g :: MonadLogger m => Map.Map Id ([(Id, Type.Type)], Exp) -> Exp -> M m Exp
 g env (IfEq x y e1 e2) = IfEq x y <$> g env e1 <*> g env e2
 g env (IfLE x y e1 e2) = IfLE x y <$> g env e1 <*> g env e2
 g env (Let xt e1 e2) = Let xt <$> g env e1 <*> g env e2
@@ -37,5 +38,8 @@ g env (App x ys) | Just (zs, e) <- Map.lookup x env = do
 g env (LetTuple xts y e) = LetTuple xts y <$> g env e
 g _ e = pure e
 
-f :: Exp -> M Exp
-f e = g Map.empty e
+f :: (MonadLogger m, MonadState s m, Id.HasCounter s) => Exp -> Int -> m Exp
+f e threshold = do state <- use Id.counter
+                   (result, state') <- runStateT (runReaderT (g Map.empty e) threshold) state
+                   assign Id.counter state'
+                   pure result

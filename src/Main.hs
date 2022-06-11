@@ -14,7 +14,6 @@ import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import           Control.Monad.Trans.Except
 import qualified Data.ByteString as BS
-import           Data.Functor.Identity
 import qualified Elim
 import           GHC.Foreign (peekCStringLen)
 import qualified Id
@@ -47,8 +46,8 @@ iter threshold n e = do
     pure e
     else
     do e' <- lift $ Assoc.f <$> Beta.f e
-       e'' <- runReaderT (Inline.f e') threshold
-       e''' <- lift $ Elim.f (ConstFold.f e'')
+       e'' <- Inline.f e' threshold
+       e''' <- Elim.f (ConstFold.f e'')
        if e == e''' then
          pure e
          else
@@ -64,71 +63,57 @@ main = do
     peekCStringLen utf8 cs <|> do hPutStrLn stderr "Input file is not UTF-8 encoded; trying EUC-JP..."
                                   euc_jp <- mkTextEncoding "euc-jp"
                                   peekCStringLen euc_jp cs
-  case Lexer.runAlex s Lexer.scanAllAndState of
-    Left msg -> do hPutStrLn stderr ("Lexical error: " ++ msg)
-                   exitFailure
-    Right (tokens, state) ->
-      case runStateT (Parser.parseExp tokens) state of
-        Left msg -> do hPutStrLn stderr msg
-                       exitFailure
-        Right (exp, state') -> do
-          when (printIntermediates options) $ do
-            putStrLn "=== Parse ==="
-            print exp
-            putStrLn "============="
-          typingResult <- Typing.f exp
-          case typingResult of
-            Left msg -> do hPutStrLn stderr msg
-                           exitFailure
-            Right (exp', extenv) -> do
-              when (printIntermediates options) $ do
-                putStrLn "=== Type Check ==="
-                print exp'
-                putStrLn "=================="
-              case runStateT (runReaderT (KNormal.f exp') extenv) state' of
-                Left msg -> do hPutStrLn stderr msg
-                               exitFailure
-                Right (exp'', state'') -> do
-                  when (printIntermediates options) $ do
-                    putStrLn "=== KNormal ==="
-                    print exp''
-                    putStrLn "==============="
-                  case runState (Alpha.f exp'') state'' of
-                    (exp''', state''') -> do
-                      when (printIntermediates options) $ do
-                        putStrLn "=== Alpha ==="
-                        print exp'''
-                        putStrLn "============="
-                      (exp'''', state'''') <- runStateT (iter (inline options) (iterLimit options) exp''') state'''
-                      closureResult <- Closure.f exp''''
-                      case closureResult of
-                        prog@(Closure.Prog _ _) -> do
-                          when (printIntermediates options) $ do
-                            putStrLn "=== Closure ==="
-                            print prog
-                            putStrLn "==============="
-                          case AArch64.Virtual.f prog state'''' of
-                            Left msg -> do hPutStrLn stderr msg
-                                           exitFailure
-                            Right (prog', state''''') -> do
-                              when (printIntermediates options) $ do
-                                putStrLn "=== Virtual ==="
-                                print prog'
-                                putStrLn "==============="
-                              let prog'' = runIdentity (AArch64.Simm.f prog')
-                              when (printIntermediates options) $ do
-                                putStrLn "=== Simm ==="
-                                print prog'
-                                putStrLn "============"
-                              regAllocResult <- runExceptT (runStateT (AArch64.RegAlloc.f prog'') state''''')
-                              case regAllocResult of
-                                Left msg -> do hPutStrLn stderr msg
-                                               exitFailure
-                                Right (prog''', state'''''') -> do
-                                  when (printIntermediates options) $ do
-                                    putStrLn "=== RegAlloc ==="
-                                    print prog''
-                                    putStrLn "================"
-                                  withFile outputFilename WriteMode $ \out -> do
-                                    ((), _) <- runStateT (AArch64.Emit.f out prog''') state''''''
-                                    pure ()
+  let compile :: StateT Id.Counter (ExceptT String IO) ()
+      compile = do tokens <- Lexer.runLexer s
+                   exp <- StateT $ ExceptT . pure . runStateT (Parser.parseExp tokens)
+                   liftIO $ when (printIntermediates options) $ do
+                     putStrLn "=== Parse ==="
+                     print exp
+                     putStrLn "============="
+                   (exp', extenv) <- lift $ ExceptT (Typing.f exp)
+                   liftIO $ when (printIntermediates options) $ do
+                     putStrLn "=== Type Check ==="
+                     print exp'
+                     putStrLn "=================="
+                   exp'' <- KNormal.f exp' extenv
+                   liftIO $ when (printIntermediates options) $ do
+                     putStrLn "=== KNormal ==="
+                     print exp''
+                     putStrLn "==============="
+                   exp''' <- Alpha.f exp''
+                   liftIO $ when (printIntermediates options) $ do
+                     putStrLn "=== Alpha ==="
+                     print exp'''
+                     putStrLn "============="
+                   exp'''' <- StateT $ lift . runStateT (iter (inline options) (iterLimit options) exp''')
+                   liftIO $ when (printIntermediates options) $ do
+                     putStrLn "=== Optimized ==="
+                     print exp''''
+                     putStrLn "================="
+                   prog <- Closure.f exp''''
+                   liftIO $ when (printIntermediates options) $ do
+                     putStrLn "=== Closure ==="
+                     print prog
+                     putStrLn "==============="
+                   prog' <- AArch64.Virtual.f prog
+                   liftIO $ when (printIntermediates options) $ do
+                     putStrLn "=== Virtual ==="
+                     print prog'
+                     putStrLn "==============="
+                   prog'' <- AArch64.Simm.f prog'
+                   liftIO $ when (printIntermediates options) $ do
+                     putStrLn "=== Simm ==="
+                     print prog'
+                     putStrLn "============"
+                   prog''' <- AArch64.RegAlloc.f prog''
+                   liftIO $ when (printIntermediates options) $ do
+                     putStrLn "=== RegAlloc ==="
+                     print prog''
+                     putStrLn "================"
+                   StateT $ \state -> lift $ withFile outputFilename WriteMode $ \out -> do
+                     runStateT (AArch64.Emit.f out prog''') state
+  result <- runExceptT (runStateT compile Id.initialCounter)
+  case result of
+    Left e -> do hPutStrLn stderr e
+                 exitFailure
+    Right ((), _state) -> pure ()

@@ -76,9 +76,9 @@ fv (Get x y) = Set.fromList [x, y]
 fv (Put x y z) = Set.fromList [x, y, z]
 fv (ExtArray _) = Set.empty
 
-type M = StateT [FunDef] IO -- toplevel
+type M m = StateT [FunDef] m -- toplevel
 
-g :: Map.Map Id Type.Type -> Set.Set Id -> KNormal.Exp -> M Exp
+g :: MonadLogger m => Map.Map Id Type.Type -> Set.Set Id -> KNormal.Exp -> M m Exp
 g _ _ KNormal.Unit = pure Unit
 g _ _ (KNormal.Int i) = pure $ Int i
 g _ _ (KNormal.Float d) = pure $ Float d
@@ -133,6 +133,6 @@ g _ _ (KNormal.Put x y z) = pure $ Put x y z
 g _ _ (KNormal.ExtArray x) = pure $ ExtArray (Id.Label x)
 g _ _ (KNormal.ExtFunApp x ys) = pure $ AppDir (Id.Label ("min_caml_" ++ x)) ys
 
-f :: KNormal.Exp -> IO Prog
+f :: MonadLogger m => KNormal.Exp -> m Prog
 f e = do (e', toplevel) <- runStateT (g Map.empty Set.empty e) []
          pure $ Prog (reverse toplevel) e'
