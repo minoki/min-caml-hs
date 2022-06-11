@@ -65,10 +65,10 @@ seq e1 e2 = (\v -> Let (v, Type.Unit) e1 e2) <$> Id.genTmp Type.Unit
 
 -- 先頭の % はemit時に外す
 allregs :: [Id]
-allregs = [ "%x2", "%x3", "%x4", "%x5"
-          , "%x6", "%x7", "%x8", "%x9"
-          , "%x10", "%x11", "%x12", "%x13"
-          , "%x14", "%x15"
+allregs = [ "%x0", "%x1", "%x2", "%x3"
+          , "%x4", "%x5", "%x6", "%x7"
+          , "%x8", "%x9", "%x10", "%x11"
+          , "%x12", "%x13", "%x14", "%x15"
           ]
 
 allfregs :: [Id]
@@ -94,12 +94,12 @@ reg_fsw = allfregs !! (length allfregs - 1)
 
 -- stack pointer
 reg_sp :: Id
-reg_sp = "%x0"
+reg_sp = "%x27"
 
 -- heap pointer
 -- 8-byte aligned
 reg_hp :: Id
-reg_hp = "%x1"
+reg_hp = "%x28"
 
 -- return address
 reg_ra :: Id

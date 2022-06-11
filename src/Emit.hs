@@ -335,6 +335,15 @@ f oc (Prog dat fundefs e) = do
     -- for macOS:
     hPutStr oc "\t.global _min_caml_start\n"
     hPutStr oc "_min_caml_start:\n"
+    -- Prologue
+    hPutStr oc "\tstp x29, x30, [sp, #-16]!\n"
+    hPutStr oc "\tstp x27, x28, [sp, #-16]!\n"
+    hPutStr oc "\tadd x29, sp, #32\n"
+    hPutStr oc "\tmov x27, x0\n"
+    hPutStr oc "\tmov x28, x1\n"
   runM (g (NonTail "%x0") e) oc -- destination register?
   lift $ do
+    -- Epilogue
+    hPutStr oc "\tldp x27, x28, [sp], #16\n"
+    hPutStr oc "\tldp x29, x30, [sp], #16\n"
     hPutStr oc "\tret\n"
