@@ -25,7 +25,7 @@ Features:
 * [x] Alpha conversion
 * [x] Beta reduction
 * [x] Flatten lets
-* [ ] Inlining
+* [x] Inlining
 * [ ] Constant folding
 * [ ] Dead code elimination
 * [x] Closure conversion

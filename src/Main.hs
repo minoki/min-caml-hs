@@ -13,6 +13,8 @@ import           Control.Monad.State.Strict
 import qualified Data.ByteString as BS
 import           Data.Functor.Identity
 import           GHC.Foreign (peekCStringLen)
+import qualified Id
+import qualified Inline
 import qualified KNormal
 import qualified Lexer
 import           MyPrelude
@@ -34,16 +36,18 @@ options = Options <$> OA.option OA.auto (OA.long "inline" <> OA.help "Maximum si
           <*> OA.switch (OA.long "print-intermediates" <> OA.help "Print intermediate representations")
           <*> OA.argument OA.str (OA.metavar "NAME")
 
-iter :: Int -> KNormal.Exp -> IO KNormal.Exp
-iter n e = do hPutStrLn stderr $ "iteration " ++ show n
-              if n == 0 then
-                pure e
-              else
-                do let e' = Assoc.f $ runIdentity (Beta.f e)
-                   if e == e' then
-                     pure e
-                   else
-                     iter (n - 1) e'
+iter :: Int -> Int -> KNormal.Exp -> StateT Id.Counter IO KNormal.Exp
+iter threshold n e = do
+  lift $ hPutStrLn stderr $ "iteration " ++ show n
+  if n == 0 then
+    pure e
+    else
+    do let e' = Assoc.f $ runIdentity (Beta.f e)
+       e'' <- StateT $ pure . runState (runReaderT (Inline.f e') threshold)
+       if e == e'' then
+         pure e
+         else
+         iter threshold (n - 1) e''
 
 main :: IO ()
 main = do
@@ -89,29 +93,29 @@ main = do
                         putStrLn "=== Alpha ==="
                         print exp'''
                         putStrLn "============="
-                      exp'''' <- iter (iterLimit options) exp'''
+                      (exp'''', state'''') <- runStateT (iter (inline options) (iterLimit options) exp''') state'''
                       case Closure.f exp'''' of
                         prog@(Closure.Prog _ _) -> do
                           when (printIntermediates options) $ do
                             putStrLn "=== Closure ==="
                             print prog
                             putStrLn "==============="
-                          case AArch64.Virtual.f prog state''' of
+                          case AArch64.Virtual.f prog state'''' of
                             Left msg -> do hPutStrLn stderr msg
                                            exitFailure
-                            Right (prog', state'''') -> do
+                            Right (prog', state''''') -> do
                               when (printIntermediates options) $ do
                                 putStrLn "=== Virtual ==="
                                 print prog'
                                 putStrLn "==============="
-                              case runStateT (AArch64.RegAlloc.f prog') state'''' of
+                              case runStateT (AArch64.RegAlloc.f prog') state''''' of
                                 Left msg -> do hPutStrLn stderr msg
                                                exitFailure
-                                Right (prog'', state''''') -> do
+                                Right (prog'', state'''''') -> do
                                   when (printIntermediates options) $ do
                                     putStrLn "=== RegAlloc ==="
                                     print prog''
                                     putStrLn "================"
                                   withFile outputFilename WriteMode $ \out -> do
-                                    ((), _) <- runStateT (AArch64.Emit.f out prog'') state'''''
+                                    ((), _) <- runStateT (AArch64.Emit.f out prog'') state''''''
                                     pure ()

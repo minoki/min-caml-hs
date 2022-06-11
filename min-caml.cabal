@@ -27,6 +27,7 @@ executable min-caml
                     , Alpha
                     , Beta
                     , Assoc
+                    , Inline
                     , Closure
                     , AArch64.Asm
                     , AArch64.Virtual

@@ -12,6 +12,7 @@ type M = State Id.Counter
 find :: Id -> Map.Map Id Id -> Id
 find x env = Map.findWithDefault x x env
 
+-- Also used by Inline.g
 g :: Map.Map Id Id -> Exp -> M Exp
 g _env Unit = pure Unit
 g _env (Int i) = pure (Int i)
