@@ -82,6 +82,7 @@ annOf (Unit a) = a
 annOf (Bool a _) = a
 annOf (Int a _) = a
 annOf (Float a _) = a
+annOf (Not a _) = a
 annOf (Neg a _) = a
 annOf (Add a _ _) = a
 annOf (Sub a _ _) = a

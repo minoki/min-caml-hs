@@ -8,7 +8,6 @@ import           Control.Monad.State.Strict
 import qualified Data.ByteString as BS
 import qualified Emit
 import           GHC.Foreign (peekCStringLen)
-import           GHC.IO.Encoding (mkTextEncoding, utf8)
 import qualified KNormal
 import qualified Lexer
 import           MyPrelude
