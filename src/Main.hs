@@ -6,6 +6,7 @@ import qualified Alpha
 import qualified Assoc
 import qualified Beta
 import qualified Closure
+import qualified ConstFold
 import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.Reader
@@ -44,10 +45,11 @@ iter threshold n e = do
     else
     do let e' = Assoc.f $ runIdentity (Beta.f e)
        e'' <- StateT $ pure . runState (runReaderT (Inline.f e') threshold)
-       if e == e'' then
+       let e''' = ConstFold.f e''
+       if e == e''' then
          pure e
          else
-         iter threshold (n - 1) e''
+         iter threshold (n - 1) e'''
 
 main :: IO ()
 main = do

@@ -26,7 +26,7 @@ Features:
 * [x] Beta reduction
 * [x] Flatten lets
 * [x] Inlining
-* [ ] Constant folding
+* [x] Constant folding
 * [ ] Dead code elimination
 * [x] Closure conversion
 * [x] Virtual machine code generation
