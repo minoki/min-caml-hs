@@ -1,6 +1,7 @@
 module Main where
 import qualified AArch64.Emit
 import qualified AArch64.RegAlloc
+import qualified AArch64.Simm
 import qualified AArch64.Virtual
 import qualified Alpha
 import qualified Assoc
@@ -111,14 +112,19 @@ main = do
                                 putStrLn "=== Virtual ==="
                                 print prog'
                                 putStrLn "==============="
-                              case runStateT (AArch64.RegAlloc.f prog') state''''' of
+                              let prog'' = runIdentity (AArch64.Simm.f prog')
+                              when (printIntermediates options) $ do
+                                putStrLn "=== Simm ==="
+                                print prog'
+                                putStrLn "============"
+                              case runStateT (AArch64.RegAlloc.f prog'') state''''' of
                                 Left msg -> do hPutStrLn stderr msg
                                                exitFailure
-                                Right (prog'', state'''''') -> do
+                                Right (prog''', state'''''') -> do
                                   when (printIntermediates options) $ do
                                     putStrLn "=== RegAlloc ==="
                                     print prog''
                                     putStrLn "================"
                                   withFile outputFilename WriteMode $ \out -> do
-                                    ((), _) <- runStateT (AArch64.Emit.f out prog'') state''''''
+                                    ((), _) <- runStateT (AArch64.Emit.f out prog''') state''''''
                                     pure ()

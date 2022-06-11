@@ -3,21 +3,27 @@ CFLAGS= -g -O2 -Wall
 all: bin/min-caml
 
 SOURCES = \
- src/AArch64Asm.hs \
+ src/AArch64/Asm.hs \
+ src/AArch64/Emit.hs \
+ src/AArch64/RegAlloc.hs \
+ src/AArch64/Simm.hs \
+ src/AArch64/Virtual.hs \
  src/Alpha.hs \
+ src/Assoc.hs \
+ src/Beta.hs \
  src/Closure.hs \
- src/Emit.hs \
+ src/ConstFold.hs \
+ src/Elim.hs \
  src/Id.hs \
+ src/Inline.hs \
  src/KNormal.hs \
  src/Lexer.x \
  src/Main.hs \
  src/MyPrelude.hs \
  src/Parser.y \
- src/RegAlloc.hs \
  src/Syntax.hs \
  src/Type.hs \
- src/Typing.hs \
- src/Virtual.hs
+ src/Typing.hs
 
 bin/min-caml: min-caml.cabal $(SOURCES)
 	cabal install --installdir=bin --overwrite-policy=always min-caml

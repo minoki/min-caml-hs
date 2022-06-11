@@ -34,6 +34,7 @@ executable min-caml
                     , AArch64.Asm
                     , AArch64.Virtual
                     , AArch64.RegAlloc
+                    , AArch64.Simm
                     , AArch64.Emit
 
     -- LANGUAGE extensions used by modules in this package.

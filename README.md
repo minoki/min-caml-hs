@@ -30,6 +30,6 @@ Features:
 * [x] Dead definition elimination
 * [x] Closure conversion
 * [x] Virtual machine code generation
-* [ ] Immediate operand
+* [x] Immediate operand
 * [x] Register allocation
 * [x] Assembly generation
