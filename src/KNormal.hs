@@ -34,13 +34,13 @@ data Exp = Unit
          | Put Id Id Id
          | ExtArray Id
          | ExtFunApp Id [Id]
-         deriving Show
+         deriving (Eq, Show)
 
 data FunDef = FunDef { name :: (Id, Type.Type)
                      , args :: [(Id, Type.Type)]
                      , body :: Exp
                      }
-            deriving Show
+            deriving (Eq, Show)
 
 -- free variables
 fv :: Exp -> Set.Set Id

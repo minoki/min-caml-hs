@@ -3,12 +3,14 @@ import qualified AArch64.Emit
 import qualified AArch64.RegAlloc
 import qualified AArch64.Virtual
 import qualified Alpha
+import qualified Beta
 import qualified Closure
 import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import qualified Data.ByteString as BS
+import           Data.Functor.Identity
 import           GHC.Foreign (peekCStringLen)
 import qualified KNormal
 import qualified Lexer
@@ -20,7 +22,7 @@ import           System.IO
 import qualified Typing
 
 data Options = Options { inline             :: !Int
-                       , iter               :: !Int
+                       , iterLimit          :: !Int
                        , printIntermediates :: !Bool
                        , filename           :: String
                        }
@@ -30,6 +32,17 @@ options = Options <$> OA.option OA.auto (OA.long "inline" <> OA.help "Maximum si
           <*> OA.option OA.auto (OA.long "iter" <> OA.help "Maximum number of optimizations iterated" <> OA.value 1000 <> OA.metavar "n")
           <*> OA.switch (OA.long "print-intermediates" <> OA.help "Print intermediate representations")
           <*> OA.argument OA.str (OA.metavar "NAME")
+
+iter :: Int -> KNormal.Exp -> IO KNormal.Exp
+iter n e = do hPutStrLn stderr $ "iteration " ++ show n
+              if n == 0 then
+                pure e
+              else
+                do let e' = runIdentity (Beta.f e)
+                   if e == e' then
+                     pure e
+                   else
+                     iter (n - 1) e'
 
 main :: IO ()
 main = do
@@ -75,7 +88,8 @@ main = do
                         putStrLn "=== Alpha ==="
                         print exp'''
                         putStrLn "============="
-                      case Closure.f exp''' of
+                      exp'''' <- iter (iterLimit options) exp'''
+                      case Closure.f exp'''' of
                         prog@(Closure.Prog _ _) -> do
                           when (printIntermediates options) $ do
                             putStrLn "=== Closure ==="

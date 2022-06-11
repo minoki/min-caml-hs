@@ -23,7 +23,7 @@ Features:
 * [x] Type inference
 * [x] K-normalization
 * [x] Alpha conversion
-* [ ] Beta reduction
+* [x] Beta reduction
 * [ ] Reduction of nested lets
 * [ ] Inlining
 * [ ] Constant folding
