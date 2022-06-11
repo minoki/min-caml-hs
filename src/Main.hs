@@ -13,6 +13,7 @@ import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import qualified Data.ByteString as BS
 import           Data.Functor.Identity
+import qualified Elim
 import           GHC.Foreign (peekCStringLen)
 import qualified Id
 import qualified Inline
@@ -45,7 +46,7 @@ iter threshold n e = do
     else
     do let e' = Assoc.f $ runIdentity (Beta.f e)
        e'' <- StateT $ pure . runState (runReaderT (Inline.f e') threshold)
-       let e''' = ConstFold.f e''
+       let e''' = runIdentity (Elim.f (ConstFold.f e''))
        if e == e''' then
          pure e
          else

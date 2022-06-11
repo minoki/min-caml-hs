@@ -29,6 +29,7 @@ executable min-caml
                     , Assoc
                     , Inline
                     , ConstFold
+                    , Elim
                     , Closure
                     , AArch64.Asm
                     , AArch64.Virtual
