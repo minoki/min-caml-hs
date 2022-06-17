@@ -176,7 +176,7 @@ g' dest cont regenv exp@(IfFLE x y e1 e2) = g'_if dest cont regenv exp (\e1' e2'
 g' dest cont regenv exp@(CallCls x ys zs) | length ys > length allregs - 2 || length zs > length allfregs - 1 = throwError $ "cannot allocate registers for arguments to " ++ x
                                           | otherwise = g'_call dest cont regenv exp (\ys zs -> CallCls <$> find x Type.Int regenv <*> pure ys <*> pure zs) ys zs
 g' dest cont regenv exp@(CallDir l@(Id.Label x) ys zs) | length ys > length allregs - 1 || length zs > length allfregs - 1 = throwError $ "cannot allocate registers for arguments to " ++ x
-                                                       | otherwise= g'_call dest cont regenv exp (\ys zs -> pure $ CallDir l ys zs) ys zs
+                                                       | otherwise = g'_call dest cont regenv exp (\ys zs -> pure $ CallDir l ys zs) ys zs
 g' _ _ _ (Save _ _) = error "unexpected Save"
 
 -- ifのレジスタ割り当て
