@@ -38,7 +38,7 @@ Lcreate_array_exit:
 min_caml_create_float_array:
         // x0: number of elements, d0: initial value
         mov x1, x28
-        add x28, x28, x0, lsl #3 // x28 = x28 + x2 * 8
+        add x28, x28, x0, lsl #3 // x28 = x28 + x0 * 8
 Lcreate_float_array_loop:
         cbz x0, Lcreate_float_array_exit
         sub x0, x0, #1
